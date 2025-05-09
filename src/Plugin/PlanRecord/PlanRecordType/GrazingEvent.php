@@ -46,6 +46,13 @@ class GrazingEvent extends FarmPlanRecordType {
         'min' => 1,
         'max' => 8760,
       ],
+      'planned' => [
+        'type' => 'integer',
+        'label' => $this->t('Planned'),
+        'min' => 0,
+        'max' => 1,
+        'required' => TRUE,
+      ],
     ];
     foreach ($field_info as $name => $info) {
       $fields[$name] = $this->farmFieldFactory->bundleFieldDefinition($info);

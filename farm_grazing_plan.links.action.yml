@@ -3,3 +3,4 @@ farm_grazing_plan.add_event:
   route_name: farm_grazing_plan.add_event
   appears_on:
     - entity.plan.canonical
+

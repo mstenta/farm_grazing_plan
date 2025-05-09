@@ -4,3 +4,9 @@
 .sg-task.stage--recovery {
   --task-bg-color: #eeb383;
 }
+.sg-task.stage--actualduration {
+  --task-bg-color: #7a66d5;
+}
+.sg-task.stage--actualrecovery {
+  --task-bg-color: #d566cc;
+}

@@ -32,12 +32,12 @@ class GrazingPlanAddEventForm extends FormBase {
   protected Request $request;
 
   /**
-   * GrazingPlanAddEventForm constructor.
+   * Constructs a new GrazingPlanAddEventForm.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   Entity type manager.
+   *   The entity type manager.
    * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The current Request object.
+   *   The current request.
    */
   public function __construct(EntityTypeManagerInterface $entity_type_manager, Request $request) {
     $this->entityTypeManager = $entity_type_manager;
@@ -50,7 +50,7 @@ class GrazingPlanAddEventForm extends FormBase {
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('entity_type.manager'),
-      $container->get('request_stack')->getCurrentRequest(),
+      $container->get('request_stack')->getCurrentRequest()
     );
   }
 
@@ -86,6 +86,7 @@ class GrazingPlanAddEventForm extends FormBase {
     }
     $form_state->set('plan_id', $plan->id());
 
+    // Movement log field.
     $form['log'] = [
       '#type' => 'entity_autocomplete',
       '#title' => $this->t('Movement log'),
@@ -101,8 +102,7 @@ class GrazingPlanAddEventForm extends FormBase {
       '#required' => TRUE,
     ];
 
-    // If a log ID was provided via query parameter, load it and set the
-    // form value.
+    // If a log ID is provided via query parameter, load it and set as default.
     $log_id = $this->request->get('log');
     if ($log_id) {
       $log = $this->entityTypeManager->getStorage('log')->load($log_id);
@@ -112,6 +112,7 @@ class GrazingPlanAddEventForm extends FormBase {
       }
     }
 
+    // Container for the event details.
     $form['details'] = [
       '#type' => 'container',
       '#attributes' => [
@@ -119,8 +120,7 @@ class GrazingPlanAddEventForm extends FormBase {
       ],
     ];
 
-    // If the form is being built with a log selected, reset grazing event
-    // details and populate their default values.
+    // If a movement log is selected, reset and rebuild event details.
     $log = NULL;
     if ($form_state->getValue('log')) {
       $this->resetGrazingEventDetails($form_state);
@@ -128,6 +128,7 @@ class GrazingPlanAddEventForm extends FormBase {
     }
     $default_values = $this->grazingEventDefaultValues($log);
 
+    // Planned start time.
     $form['details']['start'] = [
       '#type' => 'datetime',
       '#title' => $this->t('Planned start date/time'),
@@ -135,6 +136,19 @@ class GrazingPlanAddEventForm extends FormBase {
       '#required' => TRUE,
     ];
 
+    // Planned/Actual selection.
+    $form['details']['planned'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Planned/Actual'),
+      '#options' => [
+        0 => $this->t('Planned'),
+        1 => $this->t('Actual'),
+      ],
+      '#default_value' => $default_values['planned'],
+      '#required' => TRUE,
+    ];
+
+    // Duration field (hours).
     $form['details']['duration'] = [
       '#type' => 'number',
       '#title' => $this->t('Duration (hours)'),
@@ -145,6 +159,7 @@ class GrazingPlanAddEventForm extends FormBase {
       '#required' => TRUE,
     ];
 
+    // Recovery field (hours).
     $form['details']['recovery'] = [
       '#type' => 'number',
       '#title' => $this->t('Recovery (hours)'),
@@ -153,7 +168,15 @@ class GrazingPlanAddEventForm extends FormBase {
       '#max' => 8760,
       '#default_value' => $default_values['recovery'],
     ];
-
+    
+    // Add Anyway 
+    $form['details']['add_anyway'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Add anyways: if event overlaps, add and shift downstream events'),
+      '#default_value' => FALSE,
+    ];
+    
+    // Submit button.
     $form['submit'] = [
       '#type' => 'submit',
       '#value' => $this->t('Save'),
@@ -173,8 +196,10 @@ class GrazingPlanAddEventForm extends FormBase {
    * Reset grazing event details.
    */
   public function resetGrazingEventDetails(FormStateInterface $form_state) {
+    // Remove all detail fields including the 'planned' value.
     $details_fields = [
       'start',
+      'planned',
       'duration',
       'recovery',
     ];
@@ -197,17 +222,18 @@ class GrazingPlanAddEventForm extends FormBase {
    *   - start
    *   - duration
    *   - recovery
+   *   - planned
    */
   public function grazingEventDefaultValues($log = NULL) {
-
-    // Start with defaults.
+    // Set up defaults.
     $values = [
       'start' => new DrupalDateTime('midnight', $this->currentUser()->getTimeZone()),
       'duration' => NULL,
       'recovery' => NULL,
+      'planned' => 0,
     ];
 
-    // If a log was provided, load the start date from it.
+    // If a movement log is provided, use its timestamp as the start time.
     if (!is_null($log) && $log instanceof LogInterface) {
       $values['start'] = DrupalDateTime::createFromTimestamp($log->get('timestamp')->value);
     }
@@ -219,15 +245,14 @@ class GrazingPlanAddEventForm extends FormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-
-    // Require log.
+    // Ensure a movement log is selected.
     $log = $form_state->getValue('log');
     if (empty($log)) {
       $form_state->setErrorByName('log', $this->t('Select a movement log.'));
       return;
     }
 
-    // Check for existing grazing_event records for the plan and log.
+    // Check for duplicate grazing event records for the plan and log.
     $plan_id = $form_state->get('plan_id');
     $existing = $this->entityTypeManager->getStorage('plan_record')->getQuery()
       ->accessCheck(FALSE)
@@ -238,14 +263,74 @@ class GrazingPlanAddEventForm extends FormBase {
     if ($existing > 0) {
       $form_state->setErrorByName('log', $this->t('This log is already part of the plan.'));
     }
+
+    // Only check for time conflicts if time conflicts are NOT enabled.
+    if (!$form_state->getValue('enable_time_conflict')) {
+      $start_time = $form_state->getValue('start')->getTimestamp();
+      $duration_hours = $form_state->getValue('duration');
+      $end_timestamp = $start_time + (intval($duration_hours) * 3600);
+
+      // Debug logging.
+      \Drupal::logger('farm_grazing_plan')->debug('Checking time conflicts: Start @start, End @end', [
+        '@start' => date('Y-m-d H:i:s', $start_time),
+        '@end' => date('Y-m-d H:i:s', $end_timestamp),
+      ]);
+
+      // Load all grazing event records for the current plan.
+      $record_ids = $this->entityTypeManager->getStorage('plan_record')->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'grazing_event')
+        ->condition('plan', $plan_id)
+        ->execute();
+
+      if (!empty($record_ids)) {
+        $records = $this->entityTypeManager->getStorage('plan_record')->loadMultiple($record_ids);
+        foreach ($records as $existing_record) {
+          // Skip if the record uses the same movement log.
+          if ($existing_record->get('log')->target_id == $log) {
+            continue;
+          }
+          $existing_start = $existing_record->get('start')->value;
+          $existing_duration = $existing_record->get('duration')->value;
+          if (empty($existing_duration)) {
+            continue;
+          }
+          $existing_end = $existing_start + ($existing_duration * 3600);
+          // Check for overlapping times.
+          if ($start_time < $existing_end && $end_timestamp > $existing_start) {
+            $add_anyway = (bool)$form_state->getValue('add_anyway');
+            if (!$add_anyway ){
+              $form_state->setErrorByName('details][start', $this->t("This time conflicts with an existing log",));
+            }
+            else{
+              break;
+          }
+          }
+        }
+      }
+    }
   }
 
   /**
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
+    if ($form_state->hasAnyErrors()) {
+      return;
+    }
+
+    // Handle the time conflict setting.
+    $add_anyway = (bool) $form_state->getValue('add_anyway');
+    $enable_time_conflict = (bool) $form_state->getValue('enable_time_conflict');
+    $shift_overlapping = $add_anyway ? TRUE : !$enable_time_conflict;
+    
+    \Drupal::state()->set('log_reschedule.shift_overlapping', $shift_overlapping);
+    \Drupal::logger('addevent')->notice('enable_time_conflict: ' . ($enable_time_conflict ? 'TRUE' : 'FALSE'));
+
     $plan_id = $form_state->get('plan_id');
     $log = $form_state->getValue('log');
+
+    // Create and save the grazing event record.
     $record = PlanRecord::create([
       'type' => 'grazing_event',
       'plan' => $plan_id,
@@ -253,10 +338,16 @@ class GrazingPlanAddEventForm extends FormBase {
       'start' => $form_state->getValue('start')->getTimestamp(),
       'duration' => $form_state->getValue('duration'),
       'recovery' => $form_state->getValue('recovery'),
+      'planned' => $form_state->getValue('planned'),
     ]);
     $record->save();
+
     $this->messenger()->addMessage($this->t('Added @grazing_event', ['@grazing_event' => $record->label()]));
     $form_state->setRedirect('entity.plan.canonical', ['plan' => $plan_id]);
+
+    // Reset the overlapping shift state to default (TRUE).
+    \Drupal::state()->set('log_reschedule.shift_overlapping', TRUE);
   }
 
 }
+

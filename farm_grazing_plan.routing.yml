@@ -39,3 +39,17 @@ farm_grazing_plan.add_event:
         type: entity:plan
         bundle:
           - grazing
+farm_grazing_plan.remove_event:
+  path: /plan/{plan}/grazing/remove/{assetId}
+  defaults:
+    _form: Drupal\farm_grazing_plan\Form\GrazingPlanRemoveEventForm
+    _title_callback: Drupal\farm_grazing_plan\Form\GrazingPlanRemoveEventForm::title
+    assetId:
+  requirements:
+    _entity_access: plan.update
+  options:
+    parameters:
+      plan:
+        type: entity:plan
+        bundle:
+          - grazing
