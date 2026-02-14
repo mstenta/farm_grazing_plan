@@ -20,7 +20,7 @@ class Grazing extends FarmPlanType {
    * {@inheritdoc}
    */
   public function buildFieldDefinitions() {
-    $fields = parent::buildFieldDefinitions();
+    $fields = [];
     $field_info = [
       'season' => [
         'type' => 'entity_reference',
