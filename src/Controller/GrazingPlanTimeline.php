@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Drupal\farm_grazing_plan\Controller;
 
 use Drupal\Component\Uuid\UuidInterface;
-use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
 use Drupal\farm_grazing_plan\Bundle\GrazingEventInterface;
 use Drupal\farm_grazing_plan\GrazingPlanInterface;
 use Drupal\farm_log\AssetLogsInterface;
+use Drupal\farm_timeline\Controller\TimelineControllerBase;
 use Drupal\farm_timeline\TypedData\TimelineRowDefinition;
 use Drupal\log\Entity\LogInterface;
 use Drupal\plan\Entity\PlanInterface;
@@ -20,7 +20,7 @@ use Symfony\Component\Serializer\SerializerInterface;
 /**
  * Grazing plan timeline controller.
  */
-class GrazingPlanTimeline extends ControllerBase {
+class GrazingPlanTimeline extends TimelineControllerBase {
 
   /**
    * The grazing plan service.
@@ -30,38 +30,8 @@ class GrazingPlanTimeline extends ControllerBase {
   protected GrazingPlanInterface $grazingPlan;
 
   /**
-   * The asset logs service.
-   *
-   * @var \Drupal\farm_log\AssetLogsInterface
-   */
-  protected $assetLogs;
-
-  /**
-   * The UUID service.
-   *
-   * @var \Drupal\Component\Uuid\UuidInterface
-   */
-  protected $uuidService;
-
-  /**
-   * The typed data manager interface.
-   *
-   * @var \Drupal\Core\TypedData\TypedDataManagerInterface
-   */
-  protected $typedDataManager;
-
-  /**
-   * The serializer service.
-   *
-   * @var \Symfony\Component\Serializer\SerializerInterface
-   */
-  protected $serializer;
-
-  /**
    * GrazingPlanTimeline constructor.
    *
-   * @param \Drupal\farm_grazing_plan\GrazingPlanInterface $grazing_plan
-   *   The grazing plan service.
    * @param \Drupal\farm_log\AssetLogsInterface $asset_logs
    *   The asset logs service.
    * @param \Drupal\Component\Uuid\UuidInterface $uuid_service
@@ -70,13 +40,12 @@ class GrazingPlanTimeline extends ControllerBase {
    *   The typed data manager interface.
    * @param \Symfony\Component\Serializer\SerializerInterface $serializer
    *   The serializer service.
+   * @param \Drupal\farm_grazing_plan\GrazingPlanInterface $grazing_plan
+   *   The grazing plan service.
    */
-  public function __construct(GrazingPlanInterface $grazing_plan, AssetLogsInterface $asset_logs, UuidInterface $uuid_service, TypedDataManagerInterface $typed_data_manager, SerializerInterface $serializer) {
+  public function __construct(AssetLogsInterface $asset_logs, UuidInterface $uuid_service, TypedDataManagerInterface $typed_data_manager, SerializerInterface $serializer, GrazingPlanInterface $grazing_plan) {
+    parent::__construct($asset_logs, $uuid_service, $typed_data_manager, $serializer);
     $this->grazingPlan = $grazing_plan;
-    $this->assetLogs = $asset_logs;
-    $this->uuidService = $uuid_service;
-    $this->typedDataManager = $typed_data_manager;
-    $this->serializer = $serializer;
   }
 
   /**
@@ -84,11 +53,11 @@ class GrazingPlanTimeline extends ControllerBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('farm_grazing_plan'),
       $container->get('asset.logs'),
       $container->get('uuid'),
       $container->get('typed_data_manager'),
       $container->get('serializer'),
+      $container->get('farm_grazing_plan'),
     );
   }
 
@@ -151,8 +120,9 @@ class GrazingPlanTimeline extends ControllerBase {
       ];
 
       // Add tasks for all logs that reference the asset.
-      $row_values['tasks'] = array_map(function (LogInterface $log) use ($plan) {
-        return $this->buildLogTask($plan, $log);
+      // @todo limit to logs within a relevant time span
+      $row_values['tasks'] = array_map(function(LogInterface $log) use ($plan) {
+        return $this->buildLogTask($log, $plan->toUrl());
       }, $this->assetLogs->getLogs($asset));
 
       // Include each grazing event record.
@@ -190,8 +160,10 @@ class GrazingPlanTimeline extends ControllerBase {
     $tasks = [];
 
     // Generate a link for editing the grazing event.
-    $destination_url = $grazing_event->get('plan')->referencedEntities()[0]->toUrl()->toString();
-    $edit_url = $grazing_event->toUrl('edit-form', ['query' => ['destination' => $destination_url]])->toString();
+    $destination_url = $grazing_event->get('plan')
+      ->referencedEntities()[0]->toUrl()->toString();
+    $edit_url = $grazing_event->toUrl('edit-form', ['query' => ['destination' => $destination_url]])
+      ->toString();
 
     // Add a task for the grazing event duration.
     $tasks[] = [
@@ -226,7 +198,7 @@ class GrazingPlanTimeline extends ControllerBase {
     }
 
     // Add a task for the movement log.
-    $tasks[] = $this->buildLogTask($grazing_event->getPlan(), $log);
+    $tasks[] = $this->buildLogTask($log, $grazing_event->getPlan()->toUrl());
 
     // Assemble the grazing event row.
     return [
@@ -234,43 +206,6 @@ class GrazingPlanTimeline extends ControllerBase {
       'label' => $log->label(),
       'link' => $log->toLink($log->label(), 'canonical')->toString(),
       'tasks' => $tasks,
-    ];
-  }
-
-  /**
-   * Helper function for building a single log task.
-   *
-   * @param \Drupal\plan\Entity\PlanInterface $plan
-   *   The plan entity.
-   * @param \Drupal\log\Entity\LogInterface $log
-   *   The log entity.
-   *
-   * @return array
-   *   Returns an array representing a single log task.
-   */
-  protected function buildLogTask(PlanInterface $plan, LogInterface $log) {
-    $destination_url = $plan->toUrl()->toString();
-    $edit_url = $log->toUrl('edit-form', ['query' => ['destination' => $destination_url]])->toString();
-    $log_id = $log->id();
-    $bundle = $log->bundle();
-    $status = $log->get('status')->value;
-    return [
-      'id' => $this->uuidService->generate(),
-      'edit_url' => $edit_url,
-      'start' => $log->get('timestamp')->value,
-      'end' => $log->get('timestamp')->value + 86400,
-      'meta' => [
-        'label' => $log->label(),
-        'entity_id' => $log_id,
-        'entity_type' => 'log',
-        'entity_bundle' => $bundle,
-        'log_status' => $status,
-      ],
-      'classes' => [
-        'log',
-        "log--$bundle",
-        "log--status-$status",
-      ],
     ];
   }
 

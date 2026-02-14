@@ -127,3 +127,5 @@ function farm_grazing_plan_movement_quick_form_submit(array $form, FormStateInte
   // Redirect to the "Add grazing event" form with the log ID pre-populated.
   $form_state->setRedirect('farm_grazing_plan.add_event', ['plan' => $form_state->getValue('plan_id')], ['query' => ['log' => $log_id]]);
 }
+
+// Alter movement log and add a checkbox: "Update future logs for these assets"
