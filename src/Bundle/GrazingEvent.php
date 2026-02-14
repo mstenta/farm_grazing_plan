@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\farm_grazing_plan\Bundle;
 
 use Drupal\Core\StringTranslation\StringTranslationTrait;

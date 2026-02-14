@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\farm_grazing_plan\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
