@@ -38,7 +38,10 @@ class GrazingEvent extends PlanRecord implements GrazingEventInterface {
    * {@inheritdoc}
    */
   public function getLog(): ?LogInterface {
-    return $this->get('log')->first()?->entity;
+    if ($this->get('log')->isEmpty()) {
+      return NULL;
+    }
+    return $this->get('log')->referencedEntities()[0];
   }
 
 }

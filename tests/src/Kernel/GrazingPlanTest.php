@@ -96,6 +96,7 @@ class GrazingPlanTest extends KernelTestbase {
       $this->assertNotEmpty($grazing_events_by_asset[$animal_asset->id()]);
       $this->assertCount(5, $grazing_events_by_asset[$animal_asset->id()]);
       foreach ($grazing_events_by_asset[$animal_asset->id()] as $grazing_event) {
+        /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEvent $grazing_event */
         $grazing_event_log_ids[] = $grazing_event->getLog()->id();
       }
     }
@@ -109,6 +110,7 @@ class GrazingPlanTest extends KernelTestbase {
       $this->assertNotEmpty($grazing_events_by_location[$land_asset->id()]);
       $this->assertCount(2, $grazing_events_by_location[$land_asset->id()]);
       foreach ($grazing_events_by_location[$land_asset->id()] as $grazing_event) {
+        /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEvent $grazing_event */
         $grazing_event_log_ids[] = $grazing_event->getLog()->id();
       }
     }

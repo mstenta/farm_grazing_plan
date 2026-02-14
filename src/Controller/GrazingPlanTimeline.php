@@ -226,8 +226,7 @@ class GrazingPlanTimeline extends ControllerBase {
     }
 
     // Add a task for the movement log.
-    $plan = $grazing_event->get('plan')->first()?->entity;
-    $tasks[] = $this->buildLogTask($plan, $log);
+    $tasks[] = $this->buildLogTask($grazing_event->getPlan(), $log);
 
     // Assemble the grazing event row.
     return [

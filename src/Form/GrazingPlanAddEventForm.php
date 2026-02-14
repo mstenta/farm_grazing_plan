@@ -105,7 +105,7 @@ class GrazingPlanAddEventForm extends FormBase {
 
     // If a log ID was provided via query parameter, load it and set the
     // form value.
-    $log_id = $this->request->get('log');
+    $log_id = $this->request->query->get('log');
     if ($log_id) {
       $log = $this->entityTypeManager->getStorage('log')->load($log_id);
       if (!empty($log) && $log->bundle() == 'activity') {
@@ -210,7 +210,7 @@ class GrazingPlanAddEventForm extends FormBase {
     ];
 
     // If a log was provided, load the start date from it.
-    if (!is_null($log) && $log instanceof LogInterface) {
+    if ($log instanceof LogInterface) {
       $values['start'] = DrupalDateTime::createFromTimestamp($log->get('timestamp')->value);
     }
 
@@ -231,6 +231,9 @@ class GrazingPlanAddEventForm extends FormBase {
 
     // Check for existing grazing_event records for the plan and log.
     $plan_id = $form_state->get('plan_id');
+    // @todo Remove this @phpstan-ignore when phpstan-drupal issue is fixed.
+    // @see https://github.com/mglaman/phpstan-drupal/issues/825
+    // @phpstan-ignore method.alreadyNarrowedType
     $existing = $this->entityTypeManager->getStorage('plan_record')->getQuery()
       ->accessCheck(FALSE)
       ->condition('plan', $plan_id)

@@ -28,8 +28,9 @@ interface GrazingPlanInterface {
    * @param \Drupal\plan\Entity\PlanInterface $plan
    *   The plan entity.
    *
-   * @return \Drupal\farm_grazing_plan\Bundle\GrazingEventInterface[]
-   *   Returns an array of plan_record entities of type grazing_event.
+   * @return array
+   *   Returns arrays of plan_record entities of type grazing_event, indexed by
+   *   asset ID.
    */
   public function getGrazingEventsByAsset(PlanInterface $plan): array;
 
@@ -39,8 +40,9 @@ interface GrazingPlanInterface {
    * @param \Drupal\plan\Entity\PlanInterface $plan
    *   The plan entity.
    *
-   * @return \Drupal\farm_grazing_plan\Bundle\GrazingEventInterface[]
-   *   Returns an array of plan_record entities of type grazing_event.
+   * @return array
+   *   Returns arrays of plan_record entities of type grazing_event, indexed by
+   *    location asset ID.
    */
   public function getGrazingEventsByLocation(PlanInterface $plan): array;
 

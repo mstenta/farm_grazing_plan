@@ -33,7 +33,9 @@ class GrazingPlan implements GrazingPlanInterface {
    * {@inheritdoc}
    */
   public function getGrazingEvents(PlanInterface $plan): array {
-    return $this->entityTypeManager->getStorage('plan_record')->loadByProperties(['plan' => $plan->id(), 'type' => 'grazing_event']);
+    /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEvent[] $grazing_events */
+    $grazing_events = $this->entityTypeManager->getStorage('plan_record')->loadByProperties(['plan' => $plan->id(), 'type' => 'grazing_event']);
+    return $grazing_events;
   }
 
   /**
