@@ -13,7 +13,7 @@ use Drupal\farm_log\AssetLogsInterface;
 use Drupal\farm_timeline\TypedData\TimelineRowDefinition;
 use Drupal\log\Entity\LogInterface;
 use Drupal\plan\Entity\PlanInterface;
-use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Serializer\SerializerInterface;
 
@@ -22,75 +22,14 @@ use Symfony\Component\Serializer\SerializerInterface;
  */
 class GrazingPlanTimeline extends ControllerBase {
 
-  /**
-   * The grazing plan service.
-   *
-   * @var \Drupal\farm_grazing_plan\GrazingPlanInterface
-   */
-  protected GrazingPlanInterface $grazingPlan;
-
-  /**
-   * The asset logs service.
-   *
-   * @var \Drupal\farm_log\AssetLogsInterface
-   */
-  protected $assetLogs;
-
-  /**
-   * The UUID service.
-   *
-   * @var \Drupal\Component\Uuid\UuidInterface
-   */
-  protected $uuidService;
-
-  /**
-   * The typed data manager interface.
-   *
-   * @var \Drupal\Core\TypedData\TypedDataManagerInterface
-   */
-  protected $typedDataManager;
-
-  /**
-   * The serializer service.
-   *
-   * @var \Symfony\Component\Serializer\SerializerInterface
-   */
-  protected $serializer;
-
-  /**
-   * GrazingPlanTimeline constructor.
-   *
-   * @param \Drupal\farm_grazing_plan\GrazingPlanInterface $grazing_plan
-   *   The grazing plan service.
-   * @param \Drupal\farm_log\AssetLogsInterface $asset_logs
-   *   The asset logs service.
-   * @param \Drupal\Component\Uuid\UuidInterface $uuid_service
-   *   The UUID service.
-   * @param \Drupal\Core\TypedData\TypedDataManagerInterface $typed_data_manager
-   *   The typed data manager interface.
-   * @param \Symfony\Component\Serializer\SerializerInterface $serializer
-   *   The serializer service.
-   */
-  public function __construct(GrazingPlanInterface $grazing_plan, AssetLogsInterface $asset_logs, UuidInterface $uuid_service, TypedDataManagerInterface $typed_data_manager, SerializerInterface $serializer) {
-    $this->grazingPlan = $grazing_plan;
-    $this->assetLogs = $asset_logs;
-    $this->uuidService = $uuid_service;
-    $this->typedDataManager = $typed_data_manager;
-    $this->serializer = $serializer;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('farm_grazing_plan'),
-      $container->get('asset.logs'),
-      $container->get('uuid'),
-      $container->get('typed_data_manager'),
-      $container->get('serializer'),
-    );
-  }
+  public function __construct(
+    protected GrazingPlanInterface $grazingPlan,
+    protected AssetLogsInterface $assetLogs,
+    protected UuidInterface $uuidService,
+    protected TypedDataManagerInterface $typedDataManager,
+    #[Autowire(service: 'serializer')]
+    protected SerializerInterface $serializer,
+  ) {}
 
   /**
    * API endpoint for grazing plan timeline by asset.

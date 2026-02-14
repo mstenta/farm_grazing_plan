@@ -1,5 +1,6 @@
 services:
+  _defaults:
+    autowire: true
   farm_grazing_plan:
     class: Drupal\farm_grazing_plan\GrazingPlan
-    arguments:
-      [ '@entity_type.manager', '@farm.log_query', '@log.location' ]
+  Drupal\farm_grazing_plan\GrazingPlanInterface: '@farm_grazing_plan'

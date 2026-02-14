@@ -5,56 +5,24 @@ declare(strict_types=1);
 namespace Drupal\farm_grazing_plan\Form;
 
 use Drupal\Core\Datetime\DrupalDateTime;
+use Drupal\Core\DependencyInjection\AutowireTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\log\Entity\LogInterface;
 use Drupal\plan\Entity\PlanInterface;
 use Drupal\plan\Entity\PlanRecord;
-use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Grazing plan add event form.
  */
 class GrazingPlanAddEventForm extends FormBase {
 
-  /**
-   * Entity type manager.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
-   */
-  protected EntityTypeManagerInterface $entityTypeManager;
+  use AutowireTrait;
 
-  /**
-   * The current Request object.
-   *
-   * @var \Symfony\Component\HttpFoundation\Request
-   */
-  protected Request $request;
-
-  /**
-   * GrazingPlanAddEventForm constructor.
-   *
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   Entity type manager.
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The current Request object.
-   */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, Request $request) {
-    $this->entityTypeManager = $entity_type_manager;
-    $this->request = $request;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('entity_type.manager'),
-      $container->get('request_stack')->getCurrentRequest(),
-    );
-  }
+  public function __construct(
+    protected EntityTypeManagerInterface $entityTypeManager,
+  ) {}
 
   /**
    * {@inheritdoc}
@@ -105,7 +73,7 @@ class GrazingPlanAddEventForm extends FormBase {
 
     // If a log ID was provided via query parameter, load it and set the
     // form value.
-    $log_id = $this->request->query->get('log');
+    $log_id = $this->getRequest()->query->get('log');
     if ($log_id) {
       $log = $this->entityTypeManager->getStorage('log')->load($log_id);
       if (!empty($log) && $log->bundle() == 'activity') {
