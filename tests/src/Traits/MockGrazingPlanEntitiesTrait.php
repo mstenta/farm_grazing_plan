@@ -82,7 +82,6 @@ trait MockGrazingPlanEntitiesTrait {
         'name' => 'Sheep ' . $i,
         'type' => 'animal',
         'animal_type' => [['target_id' => $this->animalType->id()]],
-        'status' => 'active',
       ]);
       $asset->save();
       $this->animalAssets[] = $asset;
@@ -96,7 +95,6 @@ trait MockGrazingPlanEntitiesTrait {
         'land_type' => 'paddock',
         'is_fixed' => TRUE,
         'is_location' => TRUE,
-        'status' => 'active',
       ]);
       $asset->save();
       $this->landAssets[] = $asset;
@@ -133,7 +131,6 @@ trait MockGrazingPlanEntitiesTrait {
       'season' => [
         ['target_id' => $this->seasonTerm->id()],
       ],
-      'status' => 'active',
     ]);
     $this->plan->save();
 
