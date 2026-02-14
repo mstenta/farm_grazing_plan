@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Drupal\farm_grazing_plan\Plugin\Plan\PlanType;
 
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\farm_entity\Attribute\PlanType;
 use Drupal\farm_entity\Plugin\Plan\PlanType\FarmPlanType;
 
 /**
  * Provides the grazing plan type.
- *
- * @PlanType(
- *   id = "grazing",
- *   label = @Translation("Grazing plan"),
- * )
  */
+#[PlanType(
+  id: 'grazing',
+  label: new TranslatableMarkup('Grazing plan'),
+)]
 class Grazing extends FarmPlanType {
 
   /**

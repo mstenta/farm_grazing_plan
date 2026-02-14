@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Drupal\farm_grazing_plan\Plugin\PlanRecord\PlanRecordType;
 
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\farm_entity\Attribute\PlanRecordType;
 use Drupal\farm_entity\Plugin\PlanRecord\PlanRecordType\FarmPlanRecordType;
 
 /**
  * Provides the grazing event plan record type.
- *
- * @PlanRecordType(
- *   id = "grazing_event",
- *   label = @Translation("Grazing event"),
- * )
  */
+#[PlanRecordType(
+  id: 'grazing_event',
+  label: new TranslatableMarkup('Grazing event'),
+)]
 class GrazingEvent extends FarmPlanRecordType {
 
   /**
