@@ -30,11 +30,15 @@ class HelpHooks {
   public function help($route_name, RouteMatchInterface $route_match) {
     $output = '';
 
-    // Add a link to the Movement quick form on the "Add grazing event" form, if
-    // the module is installed.
-    if ($route_name == 'farm_grazing_plan.add_event' && $this->moduleHandler->moduleExists('farm_quick_movement')) {
-      $quick_movement_url = Url::fromRoute('farm.quick.movement', ['plan' => $route_match->getParameter('plan')->id()])->toString();
-      $output .= '<p>' . $this->t('Tip: Use the <a href=":url">Movement quick form</a> to create a movement log. You will be redirected back here to fill in more details for the plan.', [':url' => $quick_movement_url]) . '</p>';
+    // Add help text to the "Add grazing event" form.
+    if ($route_name == 'farm_grazing_plan.add_event') {
+      $output .= '<p>Use this form to add a new "grazing event" to the plan. Grazing events represent the period of time that asset(s) are in a location. Most information (the asset, location, <em>actual</em> start date, etc.) are stored in a linked movement log. The <em>planned</em> start date, duration, and recovery times are specific to this plan.</p>';
+
+      // If the Movement quick form module is installed, add a link to it.
+      if ($this->moduleHandler->moduleExists('farm_quick_movement')) {
+        $quick_movement_url = Url::fromRoute('farm.quick.movement', ['plan' => $route_match->getParameter('plan')->id()])->toString();
+        $output .= '<p>' . $this->t('Tip: Use the <a href=":url">Movement quick form</a> to create a movement log. You will be redirected back here to fill in more details for the plan.', [':url' => $quick_movement_url]) . '</p>';
+      }
     }
 
     return $output;

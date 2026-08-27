@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add additional help text to "Add grazing event" form.
+
 ## [1.0.0-alpha2] 2026-02-14
 
 ### Added
