@@ -22,6 +22,27 @@ class GrazingPlan implements GrazingPlanInterface {
   public function getGrazingEvents(PlanInterface $plan): array {
     /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEvent[] $grazing_events */
     $grazing_events = $this->entityTypeManager->getStorage('plan_record')->loadByProperties(['plan' => $plan->id(), 'type' => 'grazing_event']);
+    return $this->sortGrazingEvents($grazing_events);
+  }
+
+  /**
+   * Sort grazing events chronologically.
+   *
+   * @param \Drupal\farm_grazing_plan\Bundle\GrazingEvent[] $grazing_events
+   *   The grazing events.
+   *
+   * @return \Drupal\farm_grazing_plan\Bundle\GrazingEvent[]
+   *   Returns the sorted grazing events.
+   */
+  protected function sortGrazingEvents(array $grazing_events): array {
+    usort($grazing_events, function ($a, $b) {
+      $a_start = $a->get('start')->value;
+      $b_start = $b->get('start')->value;
+      if ($a_start == $b_start) {
+        return 0;
+      }
+      return ($a_start < $b_start) ? -1 : 1;
+    });
     return $grazing_events;
   }
 

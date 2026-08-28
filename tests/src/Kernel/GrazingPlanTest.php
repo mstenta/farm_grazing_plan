@@ -115,6 +115,18 @@ class GrazingPlanTest extends KernelTestbase {
       }
     }
     $this->assertEquals(sort($log_ids), sort($grazing_event_log_ids));
+
+    // Reschedule the last grazing event so that happens before the first, and
+    // confirm that grazing events are sorted chronologically by their planned
+    // start dates.
+    $first_event = reset($grazing_events);
+    $last_event = end($grazing_events);
+    $event_id = $last_event->id();
+    $new_start = $first_event->get('start')->value - ($last_event->get('duration')->value * 60 * 60);
+    $last_event->set('start', $new_start)->save();
+    $grazing_events = \Drupal::service('farm_grazing_plan')->getGrazingEvents($this->plan);
+    $first_event = reset($grazing_events);
+    $this->assertEquals($first_event->id(), $event_id);
   }
 
 }
