@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-alpha2] 2026-02-14
+
+### Added
+
+- Added support for farmOS v4.
+
+### Changed
+
+- Code cleanup and modernization.
+
+### Removed
+
+- Dropped support for farmOS v3.
+- Drop inherited `asset` and `log` fields from grazing plan entity.
+
 ## [1.0.0-alpha1] 2024-09-24
 
 This is the first official alpha release of the farmOS Grazing Plan module.
@@ -37,5 +52,6 @@ Here is a summary of the major features this release provides:
   [svelte-gantt](https://github.com/ANovokmet/svelte-gantt), with the ability to
   view by asset or by location.
 
-[Unreleased]: https://github.com/mstenta/farm_grazing_plan/compare/1.0.0-alpha1...HEAD
+[Unreleased]: https://github.com/mstenta/farm_grazing_plan/compare/1.0.0-alpha2...HEAD
+[1.0.0-alpha2]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha1
 [1.0.0-alpha1]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha1
