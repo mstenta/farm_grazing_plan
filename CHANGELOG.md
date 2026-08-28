@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Allow the "Add grazing event" form to create new movement logs.
+- Provide a form for editing all grazing events together.
 
 ### Changed
 

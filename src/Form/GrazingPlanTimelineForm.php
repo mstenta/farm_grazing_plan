@@ -10,7 +10,7 @@ use Drupal\Core\Url;
 use Drupal\plan\Entity\PlanInterface;
 
 /**
- * Grazing plan form.
+ * Grazing plan timeline form.
  */
 class GrazingPlanTimelineForm extends FormBase {
 
