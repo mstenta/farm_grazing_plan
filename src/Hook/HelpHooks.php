@@ -32,7 +32,7 @@ class HelpHooks {
 
     // Add help text to the "Add grazing event" form.
     if ($route_name == 'farm_grazing_plan.add_event') {
-      $output .= '<p>Use this form to add a new "grazing event" to the plan. Grazing events represent the period of time that asset(s) are in a location. Most information (the asset, location, <em>actual</em> start date, etc.) are stored in a linked movement log. The <em>planned</em> start date, duration, and recovery times are specific to this plan.</p>';
+      $output .= '<p>' . $this->t('Use this form to add a new "grazing event" to the plan. Grazing events represent the period of time that asset(s) are in a location. Most information (the asset, location, <em>actual</em> start date, etc.) is stored in a linked movement log. The <em>planned</em> start date, duration, and recovery times are specific to this plan.') . '</p>';
 
       // If the Movement quick form module is installed, add a link to it.
       if ($this->moduleHandler->moduleExists('farm_quick_movement')) {
