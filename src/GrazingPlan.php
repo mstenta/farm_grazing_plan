@@ -35,7 +35,7 @@ class GrazingPlan implements GrazingPlanInterface {
    *   Returns the sorted grazing events.
    */
   protected function sortGrazingEvents(array $grazing_events): array {
-    usort($grazing_events, function ($a, $b) {
+    uasort($grazing_events, function ($a, $b) {
       $a_start = $a->get('start')->value;
       $b_start = $b->get('start')->value;
       if ($a_start == $b_start) {
