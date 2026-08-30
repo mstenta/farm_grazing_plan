@@ -7,11 +7,13 @@ namespace Drupal\Tests\farm_grazing_plan\Kernel;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\Tests\farm_grazing_plan\Traits\MockGrazingPlanEntitiesTrait;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests for farmOS grazing plan.
  */
 #[Group('farm_grazing_plan')]
+#[RunTestsInSeparateProcesses]
 class GrazingPlanTest extends KernelTestbase {
 
   use MockGrazingPlanEntitiesTrait;
