@@ -190,16 +190,9 @@ class GrazingPlanAddEventForm extends FormBase {
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
 
-    // Require log.
-    $log_id = $form_state->getValue('log');
-    if (empty($log_id)) {
-      $form_state->setErrorByName('log', $this->t('Select a movement log.'));
-      return;
-    }
-
     // Load the log entity.
     /** @var \Drupal\log\Entity\LogInterface|null $log */
-    $log = $this->entityTypeManager->getStorage('log')->load($log_id);
+    $log = $this->entityTypeManager->getStorage('log')->load($form_state->getValue('log'));
     if (is_null($log)) {
       $form_state->setErrorByName('log', $this->t('The selected log could not be found.'));
       return;
