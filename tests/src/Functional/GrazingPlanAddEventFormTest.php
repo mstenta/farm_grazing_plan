@@ -140,6 +140,61 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     ], 'Save');
     $this->assertSession()->pageTextContains('Only movement logs can be added to a grazing plan.');
     $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+
+    // Create a multi-asset log and confirm that it cannot be added.
+    $multi_asset_log = Log::create([
+      'name' => $this->randomMachineName(),
+      'type' => 'activity',
+      'timestamp' => \Drupal::time()->getRequestTime(),
+      'asset' => [
+        ['target_id' => $this->animalAssets[0]->id()],
+        ['target_id' => $this->animalAssets[1]->id()],
+      ],
+      'location' => [
+        ['target_id' => $this->landAssets[0]->id()],
+      ],
+      'status' => 'done',
+      'is_movement' => TRUE,
+    ]);
+    $multi_asset_log->save();
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
+    $this->submitForm([
+      'log' => $multi_asset_log->label() . ' (' . $multi_asset_log->id() . ')',
+      'start[date]' => date('Y-m-d', $timestamp),
+      'start[time]' => date('H:i:s', $timestamp),
+      'duration' => 7 * 24,
+      'recovery' => 15 * 24,
+    ], 'Save');
+    $this->assertSession()->pageTextContains('This log references multiple assets. A grazing event can only move one asset.');
+    $this->assertSession()->pageTextContains('Tip: The Group asset type can be used');
+    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+
+    // Create a multi-location log and confirm that it cannot be added.
+    $multi_location_log = Log::create([
+      'name' => $this->randomMachineName(),
+      'type' => 'activity',
+      'timestamp' => \Drupal::time()->getRequestTime(),
+      'asset' => [
+        ['target_id' => $this->animalAssets[0]->id()],
+      ],
+      'location' => [
+        ['target_id' => $this->landAssets[0]->id()],
+        ['target_id' => $this->landAssets[1]->id()],
+      ],
+      'status' => 'done',
+      'is_movement' => TRUE,
+    ]);
+    $multi_location_log->save();
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
+    $this->submitForm([
+      'log' => $multi_location_log->label() . ' (' . $multi_location_log->id() . ')',
+      'start[date]' => date('Y-m-d', $timestamp),
+      'start[time]' => date('H:i:s', $timestamp),
+      'duration' => 7 * 24,
+      'recovery' => 15 * 24,
+    ], 'Save');
+    $this->assertSession()->pageTextContains('This log references multiple locations. A grazing event can only move an asset to a single location.');
+    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
   }
 
 }
