@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sort grazing events chronologically.
 - Do not allow the same movement log to be used in multiple grazing plans.
 
+### Fixed
+
+- Only movement logs can be added to a grazing plan.
+
 ## [1.0.0-alpha2] 2026-02-14
 
 ### Added

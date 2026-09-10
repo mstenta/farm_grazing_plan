@@ -191,10 +191,23 @@ class GrazingPlanAddEventForm extends FormBase {
   public function validateForm(array &$form, FormStateInterface $form_state) {
 
     // Require log.
-    $log = $form_state->getValue('log');
-    if (empty($log)) {
+    $log_id = $form_state->getValue('log');
+    if (empty($log_id)) {
       $form_state->setErrorByName('log', $this->t('Select a movement log.'));
       return;
+    }
+
+    // Load the log entity.
+    /** @var \Drupal\log\Entity\LogInterface|null $log */
+    $log = $this->entityTypeManager->getStorage('log')->load($log_id);
+    if (is_null($log)) {
+      $form_state->setErrorByName('log', $this->t('The selected log could not be found.'));
+      return;
+    }
+
+    // Log must be a movement.
+    if (!$log->get('is_movement')->value) {
+      $form_state->setErrorByName('log', $this->t('Only movement logs can be added to a grazing plan.'));
     }
 
     // Check for existing grazing_event records for the log.
@@ -204,7 +217,7 @@ class GrazingPlanAddEventForm extends FormBase {
     $existing = $this->entityTypeManager->getStorage('plan_record')->getQuery()
       ->accessCheck(FALSE)
       ->condition('type', 'grazing_event')
-      ->condition('log', $log)
+      ->condition('log', $log->id())
       ->count()
       ->execute();
     if ($existing > 0) {

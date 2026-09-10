@@ -6,6 +6,7 @@ namespace Drupal\Tests\farm_grazing_plan\Functional;
 
 use Drupal\Tests\farm_grazing_plan\Traits\MockGrazingPlanEntitiesTrait;
 use Drupal\Tests\farm_test\Functional\FarmBrowserTestBase;
+use Drupal\log\Entity\Log;
 use Drupal\plan\Entity\Plan;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
@@ -109,6 +110,35 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->drupalGet('/plan/' . $plan2->id() . '/grazing/event');
     $this->submitForm($edit, 'Save');
     $this->assertSession()->pageTextContains('This log is already part of a grazing plan.');
+    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+
+    // Get a timestamp for the next grazing event.
+    $timestamp = $this->nextGrazingEventTimestamp();
+
+    // Create a non-movement log and confirm that it cannot be added.
+    $non_movement_log = Log::create([
+      'name' => $this->randomMachineName(),
+      'type' => 'activity',
+      'timestamp' => $timestamp,
+      'asset' => [
+        ['target_id' => $this->animalAssets[0]->id()],
+      ],
+      'location' => [
+        ['target_id' => $this->landAssets[0]->id()],
+      ],
+      'status' => 'done',
+      'is_movement' => FALSE,
+    ]);
+    $non_movement_log->save();
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
+    $this->submitForm([
+      'log' => $non_movement_log->label() . ' (' . $non_movement_log->id() . ')',
+      'start[date]' => date('Y-m-d', $timestamp),
+      'start[time]' => date('H:i:s', $timestamp),
+      'duration' => 7 * 24,
+      'recovery' => 15 * 24,
+    ], 'Save');
+    $this->assertSession()->pageTextContains('Only movement logs can be added to a grazing plan.');
     $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
   }
 
