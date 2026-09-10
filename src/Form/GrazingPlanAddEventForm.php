@@ -197,19 +197,18 @@ class GrazingPlanAddEventForm extends FormBase {
       return;
     }
 
-    // Check for existing grazing_event records for the plan and log.
-    $plan_id = $form_state->get('plan_id');
+    // Check for existing grazing_event records for the log.
     // @todo Remove this @phpstan-ignore when phpstan-drupal issue is fixed.
     // @see https://github.com/mglaman/phpstan-drupal/issues/825
     // @phpstan-ignore method.alreadyNarrowedType
     $existing = $this->entityTypeManager->getStorage('plan_record')->getQuery()
       ->accessCheck(FALSE)
-      ->condition('plan', $plan_id)
+      ->condition('type', 'grazing_event')
       ->condition('log', $log)
       ->count()
       ->execute();
     if ($existing > 0) {
-      $form_state->setErrorByName('log', $this->t('This log is already part of the plan.'));
+      $form_state->setErrorByName('log', $this->t('This log is already part of a grazing plan.'));
     }
   }
 

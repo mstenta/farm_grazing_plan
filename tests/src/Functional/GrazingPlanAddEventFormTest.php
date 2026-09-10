@@ -6,6 +6,7 @@ namespace Drupal\Tests\farm_grazing_plan\Functional;
 
 use Drupal\Tests\farm_grazing_plan\Traits\MockGrazingPlanEntitiesTrait;
 use Drupal\Tests\farm_test\Functional\FarmBrowserTestBase;
+use Drupal\plan\Entity\Plan;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
@@ -95,8 +96,20 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     // Submit the same log a second time and confirm the duplicate check works.
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
     $this->submitForm($edit, 'Save');
-    $this->assertSession()->pageTextContains('This log is already part of the plan.');
-    $this->assertCount(1, $plan_record_storage->loadMultiple());
+    $this->assertSession()->pageTextContains('This log is already part of a grazing plan.');
+    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+
+    // Create a second plan and confirm that the log cannot be added to that
+    // plan either.
+    $plan2 = Plan::create([
+      'name' => $this->randomMachineName(),
+      'type' => 'grazing',
+    ]);
+    $plan2->save();
+    $this->drupalGet('/plan/' . $plan2->id() . '/grazing/event');
+    $this->submitForm($edit, 'Save');
+    $this->assertSession()->pageTextContains('This log is already part of a grazing plan.');
+    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
   }
 
 }
