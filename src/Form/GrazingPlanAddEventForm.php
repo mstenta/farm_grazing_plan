@@ -220,11 +220,17 @@ class GrazingPlanAddEventForm extends FormBase {
     // A grazing event represents a single asset in a single location.
     // Do not allow logs that reference multiple.
     $assets = $log->get('asset')->referencedEntities();
+    if (count($assets) < 1) {
+      $form_state->setErrorByName('log', $this->t('This log does not reference an asset. A grazing event must move one asset.'));
+    }
     if (count($assets) > 1) {
       $form_state->setErrorByName('log', $this->t('This log references multiple assets. A grazing event can only move one asset.'));
       $this->messenger()->addStatus($this->t('Tip: The Group asset type can be used to group multiple animal assets together into a single entity, and track their membership in/out of the group. This is useful for representing herds/flocks of individual animals.'));
     }
     $locations = $log->get('location')->referencedEntities();
+    if (count($locations) < 1) {
+      $form_state->setErrorByName('log', $this->t('This log does not reference a location. A grazing event must move an asset to a location.'));
+    }
     if (count($locations) > 1) {
       $form_state->setErrorByName('log', $this->t('This log references multiple locations. A grazing event can only move an asset to a single location.'));
     }

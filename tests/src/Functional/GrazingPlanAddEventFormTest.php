@@ -141,6 +141,52 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertSession()->pageTextContains('Only movement logs can be added to a grazing plan.');
     $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
 
+    // Create a log without an asset and confirm that it cannot be added.
+    $no_asset_log = Log::create([
+      'name' => $this->randomMachineName(),
+      'type' => 'activity',
+      'timestamp' => \Drupal::time()->getRequestTime(),
+      'location' => [
+        ['target_id' => $this->landAssets[0]->id()],
+      ],
+      'status' => 'done',
+      'is_movement' => TRUE,
+    ]);
+    $no_asset_log->save();
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
+    $this->submitForm([
+      'log' => $no_asset_log->label() . ' (' . $no_asset_log->id() . ')',
+      'start[date]' => date('Y-m-d', $timestamp),
+      'start[time]' => date('H:i:s', $timestamp),
+      'duration' => 7 * 24,
+      'recovery' => 15 * 24,
+    ], 'Save');
+    $this->assertSession()->pageTextContains('This log does not reference an asset. A grazing event must move one asset.');
+    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+
+    // Create a log without a location and confirm that it cannot be added.
+    $no_location_log = Log::create([
+      'name' => $this->randomMachineName(),
+      'type' => 'activity',
+      'timestamp' => \Drupal::time()->getRequestTime(),
+      'asset' => [
+        ['target_id' => $this->animalAssets[0]->id()],
+      ],
+      'status' => 'done',
+      'is_movement' => TRUE,
+    ]);
+    $no_location_log->save();
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
+    $this->submitForm([
+      'log' => $no_location_log->label() . ' (' . $no_location_log->id() . ')',
+      'start[date]' => date('Y-m-d', $timestamp),
+      'start[time]' => date('H:i:s', $timestamp),
+      'duration' => 7 * 24,
+      'recovery' => 15 * 24,
+    ], 'Save');
+    $this->assertSession()->pageTextContains('This log does not reference a location. A grazing event must move an asset to a location.');
+    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+
     // Create a multi-asset log and confirm that it cannot be added.
     $multi_asset_log = Log::create([
       'name' => $this->randomMachineName(),
