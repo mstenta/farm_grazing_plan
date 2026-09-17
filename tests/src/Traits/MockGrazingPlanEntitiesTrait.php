@@ -64,8 +64,9 @@ trait MockGrazingPlanEntitiesTrait {
   public function createMockPlanEntities(): void {
 
     // Create a season term.
+    $year = date('Y');
     $this->seasonTerm = Term::create([
-      'name' => '2024',
+      'name' => $year,
       'vid' => 'season',
     ]);
     $this->seasonTerm->save();
@@ -101,8 +102,8 @@ trait MockGrazingPlanEntitiesTrait {
       $this->landAssets[] = $asset;
     }
 
-    // Start the plan on May 1, 2024.
-    $timestamp = strtotime('May 1, 2024');
+    // Start the plan on May 1.
+    $timestamp = strtotime('May 1, ' . $year);
 
     // Create activity logs that move each animal through all paddocks.
     foreach ($this->animalAssets as $animal_asset) {
