@@ -10,11 +10,11 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
- * Tests for farmOS grazing plan.
+ * Tests for the farm_grazing_plan service.
  */
 #[Group('farm_grazing_plan')]
 #[RunTestsInSeparateProcesses]
-class GrazingPlanTest extends KernelTestbase {
+class GrazingPlanServiceTest extends KernelTestBase {
 
   use MockGrazingPlanEntitiesTrait;
 
