@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-alpha3] 2026-09-18
+
 ### Added
 
 - Add additional help text to "Add grazing event" form.
@@ -67,6 +69,7 @@ Here is a summary of the major features this release provides:
   [svelte-gantt](https://github.com/ANovokmet/svelte-gantt), with the ability to
   view by asset or by location.
 
-[Unreleased]: https://github.com/mstenta/farm_grazing_plan/compare/1.0.0-alpha2...HEAD
-[1.0.0-alpha2]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha1
+[Unreleased]: https://github.com/mstenta/farm_grazing_plan/compare/1.0.0-alpha3...HEAD
+[1.0.0-alpha3]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha3
+[1.0.0-alpha2]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha2
 [1.0.0-alpha1]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha1
