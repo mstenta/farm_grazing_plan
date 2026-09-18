@@ -7,6 +7,7 @@ namespace Drupal\Tests\farm_grazing_plan\Traits;
 use Drupal\asset\Entity\Asset;
 use Drupal\log\Entity\Log;
 use Drupal\plan\Entity\Plan;
+use Drupal\plan\Entity\PlanInterface;
 use Drupal\plan\Entity\PlanRecord;
 use Drupal\taxonomy\Entity\Term;
 
@@ -18,44 +19,44 @@ trait MockGrazingPlanEntitiesTrait {
   /**
    * Season term.
    *
-   * @var \Drupal\taxonomy\Entity\Term
+   * @var \Drupal\taxonomy\Entity\Term|null
    */
-  protected $seasonTerm = NULL;
+  protected ?Term $seasonTerm = NULL;
 
   /**
    * Animal type term.
    *
-   * @var \Drupal\taxonomy\Entity\Term
+   * @var \Drupal\taxonomy\Entity\Term|null
    */
-  protected $animalType = NULL;
+  protected ?Term $animalType = NULL;
 
   /**
    * Animal assets.
    *
    * @var \Drupal\asset\Entity\AssetInterface[]
    */
-  protected $animalAssets = [];
+  protected array $animalAssets = [];
 
   /**
    * Land assets.
    *
    * @var \Drupal\asset\Entity\AssetInterface[]
    */
-  protected $landAssets = [];
+  protected array $landAssets = [];
 
   /**
    * Movement logs.
    *
    * @var \Drupal\log\Entity\LogInterface[]
    */
-  protected $movementLogs = [];
+  protected array $movementLogs = [];
 
   /**
    * Grazing plan.
    *
-   * @var \Drupal\plan\Entity\PlanInterface
+   * @var \Drupal\plan\Entity\PlanInterface|null
    */
-  protected $plan = NULL;
+  protected ?PlanInterface $plan = NULL;
 
   /**
    * Create mock grazing plan entities.
