@@ -200,9 +200,6 @@ class GrazingPlanAddEventForm extends FormBase {
     }
 
     // Check for existing grazing_event records for the log.
-    // @todo Remove this @phpstan-ignore when phpstan-drupal issue is fixed.
-    // @see https://github.com/mglaman/phpstan-drupal/issues/825
-    // @phpstan-ignore method.alreadyNarrowedType
     $existing = $this->entityTypeManager->getStorage('plan_record')->getQuery()
       ->accessCheck(FALSE)
       ->condition('type', 'grazing_event')
