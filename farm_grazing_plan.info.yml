@@ -4,10 +4,10 @@ type: module
 package: farmOS Contrib
 core_version_requirement: ^11
 dependencies:
-  - farm_activity
-  - farm_animal
-  - farm_entity
-  - farm_location
-  - farm_season
-  - farm_timeline
-  - plan
+  - farm:farm_activity
+  - farm:farm_animal
+  - farm:farm_entity
+  - farm:farm_location
+  - farm:farm_season
+  - farm:farm_timeline
+  - farm:plan
