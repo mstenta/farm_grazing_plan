@@ -18,6 +18,13 @@ use Drupal\taxonomy\Entity\Term;
 trait MockGrazingPlanEntitiesTrait {
 
   /**
+   * Year.
+   *
+   * @var string|null
+   */
+  protected ?string $year = NULL;
+
+  /**
    * Season term.
    *
    * @var \Drupal\taxonomy\Entity\Term|null
@@ -71,10 +78,12 @@ trait MockGrazingPlanEntitiesTrait {
    */
   public function createMockPlanEntities(): void {
 
+    // Declare the year.
+    $this->year = date('Y');
+
     // Create a season term.
-    $year = date('Y');
     $this->seasonTerm = Term::create([
-      'name' => $year,
+      'name' => $this->year,
       'vid' => 'season',
     ]);
     $this->seasonTerm->save();
@@ -120,22 +129,12 @@ trait MockGrazingPlanEntitiesTrait {
     ]);
     $this->plan->save();
 
-    // Create activity logs that move each animal through all paddocks.
+    // Create activity logs and grazing events that move each animal through
+    // all paddocks.
     $timestamp = NULL;
     foreach ($this->animalAssets as $animal_asset) {
       foreach ($this->landAssets as $land_asset) {
-
-        // If this is the first log, start on May 1.
-        if (is_null($timestamp)) {
-          $timestamp = strtotime('May 1, ' . $year);
-        }
-
-        // Otherwise, add a week to the previous timestamp.
-        else {
-          $timestamp = strtotime('+7 days', $timestamp);
-        }
-
-        // Create the log and plan_record entities.
+        $timestamp = $this->nextGrazingEventTimestamp();
         $this->createMockGrazingEvent($timestamp, $animal_asset, $land_asset, TRUE, $this->plan);
       }
     }
@@ -175,6 +174,26 @@ trait MockGrazingPlanEntitiesTrait {
       ]);
       $grazing_event->save();
       $this->grazingEvents[] = $grazing_event;
+    }
+  }
+
+  /**
+   * Calculate the timestamp of the next grazing event.
+   *
+   * @return int
+   *   Returns a timestamp at the end of the last grazing event.
+   */
+  public function nextGrazingEventTimestamp(): int {
+
+    // If this is the first grazing event, start on May 1.
+    if (empty($this->grazingEvents)) {
+      return strtotime('May 1, ' . $this->year);
+    }
+
+    // Otherwise, use the end of the last grazing event.
+    else {
+      $grazing_event = end($this->grazingEvents);
+      return $grazing_event->get('start')->value + ($grazing_event->get('duration')->value * 60 * 60);
     }
   }
 
