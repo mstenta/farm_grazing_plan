@@ -60,7 +60,7 @@ trait MockGrazingPlanEntitiesTrait {
   /**
    * Create mock grazing plan entities.
    */
-  public function createMockPlanEntities() {
+  public function createMockPlanEntities(): void {
 
     // Create a season term.
     $this->seasonTerm = Term::create([
