@@ -193,10 +193,6 @@ class GrazingPlanAddEventForm extends FormBase {
     // Load the log entity.
     /** @var \Drupal\log\Entity\LogInterface|null $log */
     $log = $this->entityTypeManager->getStorage('log')->load($form_state->getValue('log'));
-    if (is_null($log)) {
-      $form_state->setErrorByName('log', $this->t('The selected log could not be found.'));
-      return;
-    }
 
     // Log must be a movement.
     if (!$log->get('is_movement')->value) {
