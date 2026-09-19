@@ -45,8 +45,10 @@ class ThemeHooks {
     // Render the grazing plan timeline.
     $build['grazing_plan_timeline'] = $this->formBuilder->getForm(GrazingPlanTimelineForm::class, $plan);
 
-    // Render the grazing plan form.
-    $build['grazing_plan_form'] = $this->formBuilder->getForm(GrazingPlanEventsForm::class, $plan);
+    // If the user has plan update access, render the grazing plan form.
+    if ($plan->access('update')) {
+      $build['grazing_plan_form'] = $this->formBuilder->getForm(GrazingPlanEventsForm::class, $plan);
+    }
   }
 
   /**
