@@ -9,13 +9,13 @@ use Drupal\Core\Validation\Attribute\Constraint;
 use Symfony\Component\Validator\Constraint as SymfonyConstraint;
 
 /**
- * Restrict editing grazing event logs.
+ * Restrict editing grazing event log fields.
  */
 #[Constraint(
-  id: 'GrazingEventLog',
-  label: new TranslatableMarkup('Restrict editing grazing event logs.', ['context' => 'Validation']),
+  id: 'GrazingEventLogRestrictedFields',
+  label: new TranslatableMarkup('Restrict editing grazing event log fields.', ['context' => 'Validation']),
 )]
-class GrazingEventLog extends SymfonyConstraint {
+class GrazingEventLogRestrictedFields extends SymfonyConstraint {
 
   /**
    * The default violation message.

@@ -11,9 +11,9 @@ use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 
 /**
- * Validates the GrazingEventLog constraint.
+ * Validates the GrazingEventLogRestrictedFields constraint.
  */
-class GrazingEventLogValidator extends ConstraintValidator implements ContainerInjectionInterface {
+class GrazingEventLogRestrictedFieldsValidator extends ConstraintValidator implements ContainerInjectionInterface {
 
   use AutowireTrait;
 
@@ -38,7 +38,7 @@ class GrazingEventLogValidator extends ConstraintValidator implements ContainerI
    */
   public function validate(mixed $value, Constraint $constraint) {
     /** @var \Drupal\log\Entity\LogInterface $value */
-    /** @var \Drupal\farm_grazing_plan\Plugin\Validation\Constraint\GrazingEventLog $constraint */
+    /** @var \Drupal\farm_grazing_plan\Plugin\Validation\Constraint\GrazingEventLogRestrictedFields $constraint */
 
     // If the log is new, bail.
     $log = $value;

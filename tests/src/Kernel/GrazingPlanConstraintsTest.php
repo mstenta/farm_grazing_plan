@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\farm_grazing_plan\Kernel;
 
-use Drupal\farm_grazing_plan\Plugin\Validation\Constraint\GrazingEventLog;
+use Drupal\farm_grazing_plan\Plugin\Validation\Constraint\GrazingEventLogRestrictedFields;
 use Drupal\log\Entity\LogInterface;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
@@ -24,9 +24,9 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
   ];
 
   /**
-   * Test grazing event log validation.
+   * Test the GrazingEventLogRestrictedFields constraint on log entities.
    */
-  public function testGrazingEventLogValidation() {
+  public function testGrazingEventLogRestrictedFieldsValidation() {
 
     // Create mock plan entities.
     $this->createMockPlanEntities();
@@ -52,12 +52,12 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
       'is_movement' => FALSE,
     ];
     foreach ($modify_fields as $field_name => $value) {
-      $this->assertGrazingEventLogViolation($log, $field_name, $value);
+      $this->assertGrazingEventLogRestrictedFieldsViolation($log, $field_name, $value);
     }
   }
 
   /**
-   * Assert that changing a field value causes a GrazingEventLog violation.
+   * Assert a GrazingEventLogRestrictedFields violation for a field change.
    *
    * @param \Drupal\log\Entity\LogInterface $log
    *   The log entity.
@@ -66,7 +66,7 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
    * @param array|bool|int $value
    *   The field value to set.
    */
-  protected function assertGrazingEventLogViolation(LogInterface $log, string $field_name, array|bool|int $value): void {
+  protected function assertGrazingEventLogRestrictedFieldsViolation(LogInterface $log, string $field_name, array|bool|int $value): void {
 
     // Remember the original field value.
     $original_value = $log->get($field_name)->getValue();
@@ -75,7 +75,7 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
     $log->set($field_name, $value);
     $violations = $log->validate();
     $this->assertEquals(1, $violations->count());
-    $this->assertInstanceOf(GrazingEventLog::class, $violations->get(0)->getConstraint());
+    $this->assertInstanceOf(GrazingEventLogRestrictedFields::class, $violations->get(0)->getConstraint());
 
     // Reset field value and confirm no violation.
     $log->set($field_name, $original_value);

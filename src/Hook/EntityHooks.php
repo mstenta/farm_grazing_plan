@@ -21,7 +21,7 @@ class EntityHooks {
     // Add a constraint to log entities to restrict editing fields that are
     // managed by a grazing plan.
     if (isset($entity_types['log'])) {
-      $entity_types['log']->addConstraint('GrazingEventLog');
+      $entity_types['log']->addConstraint('GrazingEventLogRestrictedFields');
     }
   }
 
