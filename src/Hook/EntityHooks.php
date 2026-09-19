@@ -23,6 +23,12 @@ class EntityHooks {
     if (isset($entity_types['log'])) {
       $entity_types['log']->addConstraint('GrazingEventLogRestrictedFields');
     }
+
+    // Add a constraint to plan_record entities to validate the movement log
+    // associated with a grazing event.
+    if (isset($entity_types['plan_record'])) {
+      $entity_types['plan_record']->addConstraint('GrazingEventLog');
+    }
   }
 
   /**

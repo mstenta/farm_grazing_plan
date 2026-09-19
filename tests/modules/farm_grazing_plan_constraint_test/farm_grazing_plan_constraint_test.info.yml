@@ -1,0 +1,7 @@
+name: Grazing plan contstraint test
+type: module
+description: 'Support module for farm_grazing_plan constraint testing.'
+package: Testing
+core_version_requirement: ^11
+dependencies:
+  - farm:farm_entity

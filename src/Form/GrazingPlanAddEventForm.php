@@ -12,6 +12,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\log\Entity\LogInterface;
 use Drupal\plan\Entity\PlanInterface;
 use Drupal\plan\Entity\PlanRecord;
+use Drupal\plan\Entity\PlanRecordInterface;
 
 /**
  * Grazing plan add event form.
@@ -190,62 +191,63 @@ class GrazingPlanAddEventForm extends FormBase {
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
 
-    // Load the log entity.
+    // Build the grazing event from the form values.
+    $grazing_event = $this->buildGrazingEvent($form_state);
+
+    // Validate the grazing event and add any violations as form errors.
+    $violations = $grazing_event->validate();
+    foreach ($violations as $violation) {
+      $property = $violation->getPropertyPath();
+      $field_name = $property ? explode('.', $property)[0] : 'log';
+      $element = match ($field_name) {
+        'start' => 'details][start',
+        'duration' => 'details][duration',
+        'recovery' => 'details][recovery',
+        default => 'log',
+      };
+      $form_state->setErrorByName($element, $violation->getMessage());
+    }
+
+    // Suggest the Group asset type for logs that reference multiple assets.
     /** @var \Drupal\log\Entity\LogInterface|null $log */
     $log = $this->entityTypeManager->getStorage('log')->load($form_state->getValue('log'));
-
-    // Log must be a movement.
-    if (!$log->get('is_movement')->value) {
-      $form_state->setErrorByName('log', $this->t('Only movement logs can be added to a grazing plan.'));
-    }
-
-    // Check for existing grazing_event records for the log.
-    $existing = $this->entityTypeManager->getStorage('plan_record')->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('type', 'grazing_event')
-      ->condition('log', $log->id())
-      ->count()
-      ->execute();
-    if ($existing > 0) {
-      $form_state->setErrorByName('log', $this->t('This log is already part of a grazing plan.'));
-    }
-
-    // A grazing event represents a single asset in a single location.
-    // Do not allow logs that reference multiple.
-    $assets = $log->get('asset')->referencedEntities();
-    if (count($assets) < 1) {
-      $form_state->setErrorByName('log', $this->t('This log does not reference an asset. A grazing event must move one asset.'));
-    }
-    if (count($assets) > 1) {
-      $form_state->setErrorByName('log', $this->t('This log references multiple assets. A grazing event can only move one asset.'));
+    if ($log instanceof LogInterface && count($log->get('asset')) > 1) {
       $this->messenger()->addStatus($this->t('Tip: The Group asset type can be used to group multiple animal assets together into a single entity, and track their membership in/out of the group. This is useful for representing herds/flocks of individual animals.'));
     }
-    $locations = $log->get('location')->referencedEntities();
-    if (count($locations) < 1) {
-      $form_state->setErrorByName('log', $this->t('This log does not reference a location. A grazing event must move an asset to a location.'));
-    }
-    if (count($locations) > 1) {
-      $form_state->setErrorByName('log', $this->t('This log references multiple locations. A grazing event can only move an asset to a single location.'));
-    }
+
+    // Store the grazing event, so it can be saved on submit.
+    $form_state->set('grazing_event', $grazing_event);
+  }
+
+  /**
+   * Build a grazing event from the form values.
+   *
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   *
+   * @return \Drupal\plan\Entity\PlanRecordInterface
+   *   Returns an unsaved plan_record entity.
+   */
+  protected function buildGrazingEvent(FormStateInterface $form_state): PlanRecordInterface {
+    return PlanRecord::create([
+      'type' => 'grazing_event',
+      'plan' => $form_state->get('plan_id'),
+      'log' => $form_state->getValue('log'),
+      'start' => $form_state->getValue('start')->getTimestamp(),
+      'duration' => $form_state->getValue('duration'),
+      'recovery' => $form_state->getValue('recovery'),
+    ]);
   }
 
   /**
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $plan_id = $form_state->get('plan_id');
-    $log = $form_state->getValue('log');
-    $record = PlanRecord::create([
-      'type' => 'grazing_event',
-      'plan' => $plan_id,
-      'log' => $log,
-      'start' => $form_state->getValue('start')->getTimestamp(),
-      'duration' => $form_state->getValue('duration'),
-      'recovery' => $form_state->getValue('recovery'),
-    ]);
-    $record->save();
-    $this->messenger()->addMessage($this->t('Added @grazing_event', ['@grazing_event' => $record->label()]));
-    $form_state->setRedirect('entity.plan.canonical', ['plan' => $plan_id]);
+    /** @var \Drupal\plan\Entity\PlanRecordInterface $grazing_event */
+    $grazing_event = $form_state->get('grazing_event');
+    $grazing_event->save();
+    $this->messenger()->addMessage($this->t('Added @grazing_event', ['@grazing_event' => $grazing_event->label()]));
+    $form_state->setRedirect('entity.plan.canonical', ['plan' => $form_state->get('plan_id')]);
   }
 
 }
