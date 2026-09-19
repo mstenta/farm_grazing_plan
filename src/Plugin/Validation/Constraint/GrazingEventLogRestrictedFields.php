@@ -22,6 +22,6 @@ class GrazingEventLogRestrictedFields extends SymfonyConstraint {
    *
    * @var string
    */
-  public string $message = 'This log is part of the Grazing Plan: <a href=":plan_uri">%plan_name</a>. Some data can only be modified in the plan.';
+  public string $message = 'This log is part of a Grazing Plan. Some data can only be modified in the plan.';
 
 }

@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move add event form's movement log validation logic into an entity constraint
   so that it is checked in more places (eg: API requests).
 
+### Removed
+
+- Do not link to plan from GrazingEventLog validation message.
+
 ## [1.0.0-alpha3] 2026-09-18
 
 ### Added

@@ -54,11 +54,6 @@ class GrazingEventLogRestrictedFieldsValidator extends ConstraintValidator imple
     if (empty($grazing_events)) {
       return;
     }
-    $grazing_event = reset($grazing_events);
-
-    // Load the plan from the plan_record.
-    /** @var \Drupal\plan\Entity\PlanInterface $plan */
-    $plan = $grazing_event->get('plan')->referencedEntities()[0];
 
     // Load the original unchanged log from the database.
     $original_log = $this->entityTypeManager->getStorage('log')->load($log->id());
@@ -71,7 +66,7 @@ class GrazingEventLogRestrictedFieldsValidator extends ConstraintValidator imple
       }
     }
     if ($restricted_modification) {
-      $this->context->addViolation($constraint->message, [':plan_uri' => $plan->toUrl()->toString(), '%plan_name' => $plan->label()]);
+      $this->context->addViolation($constraint->message);
     }
   }
 
