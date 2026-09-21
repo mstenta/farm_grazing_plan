@@ -8,6 +8,7 @@ use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\log\Entity\Log;
 use Drupal\log\Entity\LogInterface;
 use Drupal\plan\Entity\PlanInterface;
 use Drupal\plan\Entity\PlanRecord;
@@ -54,6 +55,14 @@ class GrazingPlanAddEventForm extends FormBase {
     }
     $form_state->set('plan_id', $plan->id());
 
+    // Either select an existing movement log or create a new one.
+    $form['existing_log'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Link an existing movement log'),
+      '#description' => $this->t('Add an existing movement log to this plan. Leave this unchecked to create a new log.'),
+    ];
+
+    // Select an existing log.
     $form['log'] = [
       '#type' => 'entity_autocomplete',
       '#title' => $this->t('Movement log'),
@@ -66,19 +75,76 @@ class GrazingPlanAddEventForm extends FormBase {
         'callback' => [$this, 'grazingEventDetailsCallback'],
         'event' => 'autocompleteclose change',
       ],
-      '#required' => TRUE,
+      '#states' => [
+        'required' => [
+          ':input[name="existing_log"]' => ['checked' => TRUE],
+        ],
+        'visible' => [
+          ':input[name="existing_log"]' => ['checked' => TRUE],
+        ],
+      ],
     ];
 
     // If a log ID was provided via query parameter, load it and set the
-    // form value.
+    // appropriate form values.
     $log_id = $this->getRequest()->query->get('log');
     if ($log_id) {
       $log = $this->entityTypeManager->getStorage('log')->load($log_id);
       if (!empty($log) && $log->bundle() == 'activity') {
+        $form['existing_log']['#default_value'] = TRUE;
+        $form_state->setValue('existing_log', TRUE);
         $form['log']['#default_value'] = $log;
         $form_state->setValue('log', $log_id);
       }
     }
+
+    // Select an asset and location, if an existing log is not being linked.
+    $form['asset'] = [
+      '#type' => 'entity_autocomplete',
+      '#title' => $this->t('Animal(s)'),
+      '#description' => $this->t('Select the animal(s) that will be moving. Only a single asset can be selected. If you are moving a herd/flock, select a Group asset that represents the herd.'),
+      '#target_type' => 'asset',
+      '#selection_settings' => [
+        'target_bundles' => ['animal', 'group'],
+        'sort' => [
+          'field' => 'archived',
+          'direction' => 'DESC',
+        ],
+      ],
+      '#maxlength' => 1024,
+      '#states' => [
+        'required' => [
+          ':input[name="existing_log"]' => ['checked' => FALSE],
+        ],
+        'visible' => [
+          ':input[name="existing_log"]' => ['checked' => FALSE],
+        ],
+      ],
+    ];
+    $form['location'] = [
+      '#type' => 'entity_autocomplete',
+      '#title' => $this->t('Location'),
+      '#description' => $this->t('Select the location that the animal(s) will be moving to. Only a single location can be selected.'),
+      '#target_type' => 'asset',
+      '#selection_handler' => 'views',
+      '#selection_settings' => [
+        'view' => [
+          'view_name' => 'farm_location_reference',
+          'display_name' => 'entity_reference',
+          'arguments' => [],
+        ],
+        'match_operator' => 'CONTAINS',
+      ],
+      '#maxlength' => 1024,
+      '#states' => [
+        'required' => [
+          ':input[name="existing_log"]' => ['checked' => FALSE],
+        ],
+        'visible' => [
+          ':input[name="existing_log"]' => ['checked' => FALSE],
+        ],
+      ],
+    ];
 
     $form['details'] = [
       '#type' => 'container',
@@ -188,48 +254,53 @@ class GrazingPlanAddEventForm extends FormBase {
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
 
-    // Build the grazing event from the form values.
-    $grazing_event = $this->buildGrazingEvent($form_state);
+    // If we are linking an existing movement log, validate it.
+    if ($form_state->getValue('existing_log')) {
 
-    // Validate the grazing event and add any violations as form errors.
-    $violations = $grazing_event->validate();
-    foreach ($violations as $violation) {
-      $property = $violation->getPropertyPath();
-      $field_name = $property ? explode('.', $property)[0] : 'log';
-      $element = match ($field_name) {
-        'start' => 'details][start',
-        'duration' => 'details][duration',
-        'recovery' => 'details][recovery',
-        default => 'log',
-      };
-      $form_state->setErrorByName($element, $violation->getMessage());
+      // Load the log.
+      /** @var \Drupal\log\Entity\LogInterface|null $log */
+      $log = $this->entityTypeManager->getStorage('log')->load($form_state->getValue('log'));
+
+      // Draft a grazing event from the form values.
+      $grazing_event = $this->buildGrazingEvent($log, $form_state);
+
+      // Validate the grazing event and add any violations as form errors.
+      $violations = $grazing_event->validate();
+      foreach ($violations as $violation) {
+        $property = $violation->getPropertyPath();
+        $field_name = $property ? explode('.', $property)[0] : 'log';
+        $element = match ($field_name) {
+          'start' => 'details][start',
+          'duration' => 'details][duration',
+          'recovery' => 'details][recovery',
+          default => 'log',
+        };
+        $form_state->setErrorByName($element, $violation->getMessage());
+      }
+
+      // Suggest the Group asset type for logs that reference multiple assets.
+      if ($log instanceof LogInterface && count($log->get('asset')) > 1) {
+        $this->messenger()->addStatus($this->t('Tip: The Group asset type can be used to group multiple animal assets together into a single entity, and track their membership in/out of the group. This is useful for representing herds/flocks of individual animals.'));
+      }
     }
-
-    // Suggest the Group asset type for logs that reference multiple assets.
-    /** @var \Drupal\log\Entity\LogInterface|null $log */
-    $log = $this->entityTypeManager->getStorage('log')->load($form_state->getValue('log'));
-    if ($log instanceof LogInterface && count($log->get('asset')) > 1) {
-      $this->messenger()->addStatus($this->t('Tip: The Group asset type can be used to group multiple animal assets together into a single entity, and track their membership in/out of the group. This is useful for representing herds/flocks of individual animals.'));
-    }
-
-    // Store the grazing event, so it can be saved on submit.
-    $form_state->set('grazing_event', $grazing_event);
   }
 
   /**
    * Build a grazing event from the form values.
    *
+   * @param \Drupal\log\Entity\LogInterface $log
+   *   The log entity.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
    *
    * @return \Drupal\plan\Entity\PlanRecordInterface
    *   Returns an unsaved plan_record entity.
    */
-  protected function buildGrazingEvent(FormStateInterface $form_state): PlanRecordInterface {
+  protected function buildGrazingEvent(LogInterface $log, FormStateInterface $form_state): PlanRecordInterface {
     return PlanRecord::create([
       'type' => 'grazing_event',
       'plan' => $form_state->get('plan_id'),
-      'log' => $form_state->getValue('log'),
+      'log' => $log->id(),
       'start' => $form_state->getValue('start')->getTimestamp(),
       'duration' => $form_state->getValue('duration'),
       'recovery' => $form_state->getValue('recovery'),
@@ -240,10 +311,40 @@ class GrazingPlanAddEventForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
+
+    // If we are not linking an existing log, create one.
+    if (!$form_state->getValue('existing_log')) {
+      $now = new DrupalDateTime('now', $this->currentUser()->getTimeZone());
+      /** @var \Drupal\Core\Datetime\DrupalDateTime $start */
+      $start = $form_state->getValue('start');
+      $asset = $this->entityTypeManager->getStorage('asset')->load($form_state->getValue('asset'));
+      $location = $this->entityTypeManager->getStorage('asset')->load($form_state->getValue('location'));
+      $log = Log::create([
+        'type' => 'activity',
+        'name' => $this->t('Move @asset to @location', ['@asset' => $asset->label(), '@location' => $location->label()]),
+        'timestamp' => $start->getTimestamp(),
+        'asset' => [$asset],
+        'location' => [$location],
+        'status' => $start->getTimestamp() <= $now->getTimestamp() ? 'done' : 'pending',
+        'is_movement' => TRUE,
+      ]);
+      $log->save();
+      $this->messenger()->addMessage($this->t('Created log: @log', ['@log' => $log->label()]));
+    }
+
+    // Otherwise, load the existing log.
+    else {
+      /** @var \Drupal\log\Entity\LogInterface|null $log */
+      $log = $this->entityTypeManager->getStorage('log')->load($form_state->getValue('log'));
+    }
+
+    // Create the grazing event.
     /** @var \Drupal\plan\Entity\PlanRecordInterface $grazing_event */
-    $grazing_event = $form_state->get('grazing_event');
+    $grazing_event = $this->buildGrazingEvent($log, $form_state);
     $grazing_event->save();
     $this->messenger()->addMessage($this->t('Added @grazing_event', ['@grazing_event' => $grazing_event->label()]));
+
+    // Redirect to the plan.
     $form_state->setRedirect('entity.plan.canonical', ['plan' => $form_state->get('plan_id')]);
   }
 

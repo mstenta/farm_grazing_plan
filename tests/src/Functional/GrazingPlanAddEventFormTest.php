@@ -36,10 +36,12 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     // Create mock plan entities.
     $this->createMockPlanEntities();
 
-    // Get plan_record entity storage.
+    // Get log and plan_record entity storage.
+    $log_storage = \Drupal::entityTypeManager()->getStorage('log');
     $plan_record_storage = \Drupal::entityTypeManager()->getStorage('plan_record');
 
-    // Count plan_record entities.
+    // Count log and plan_record entities.
+    $expected_log_count = count($log_storage->loadMultiple());
     $expected_plan_record_count = count($plan_record_storage->loadMultiple());
 
     // Attempt to load the add grazing event form and confirm that access is
@@ -52,6 +54,9 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'view any grazing plan',
       'update any grazing plan',
       'view any activity log',
+      'view any animal asset',
+      'view any land asset',
+      'access asset collection',
     ]);
     $this->drupalLogin($user);
 
@@ -59,11 +64,108 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     // expected fields are visible.
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->fieldExists('existing_log');
     $this->assertSession()->fieldExists('log');
+    $this->assertSession()->fieldExists('asset');
+    $this->assertSession()->fieldExists('location');
     $this->assertSession()->fieldExists('start[date]');
     $this->assertSession()->fieldExists('start[time]');
     $this->assertSession()->fieldExists('duration');
     $this->assertSession()->fieldExists('recovery');
+
+    // Get a timestamp for the next grazing event.
+    $timestamp = $this->nextGrazingEventTimestamp();
+
+    // Select the first asset and location and submit the form.
+    $asset = reset($this->animalAssets);
+    $location = reset($this->landAssets);
+    $this->submitForm([
+      'asset' => $asset->label() . ' (' . $asset->id() . ')',
+      'location' => $location->label() . ' (' . $location->id() . ')',
+      'start[date]' => date('Y-m-d', $timestamp),
+      'start[time]' => date('H:i:s', $timestamp),
+      'duration' => 7 * 24,
+      'recovery' => 15 * 24,
+    ], 'Save');
+
+    // Confirm that the status messages are shown.
+    $this->assertSession()->pageTextContains('Created log: Move ' . $asset->label() . ' to ' . $location->label());
+    $this->assertSession()->pageTextContains('Added Grazing event: Move ' . $asset->label() . ' to ' . $location->label() . ' - ' . $this->plan->label());
+
+    // Confirm that a new log was created with the expected values.
+    $expected_log_count++;
+    $logs = $log_storage->loadMultiple();
+    $this->assertCount($expected_log_count, $logs);
+    $log = end($logs);
+    $this->assertEquals('activity', $log->bundle());
+    $this->assertEquals('Move ' . $asset->label() . ' to ' . $location->label(), $log->label());
+    $this->assertEquals($timestamp, $log->get('timestamp')->value);
+    $this->assertEquals($asset->id(), $log->get('asset')->target_id);
+    $this->assertEquals($location->id(), $log->get('location')->target_id);
+    $this->assertTrue((bool) $log->get('is_movement')->value);
+    $this->assertEquals('done', $log->get('status')->value);
+
+    // Confirm that a new grazing event plan record was created with the
+    // expected values.
+    $expected_plan_record_count++;
+    $plan_records = $plan_record_storage->loadMultiple();
+    $this->assertCount($expected_plan_record_count, $plan_records);
+    $plan_record = end($plan_records);
+    $this->assertEquals($this->plan->id(), $plan_record->get('plan')->target_id);
+    $this->assertEquals($log->id(), $plan_record->get('log')->target_id);
+    $this->assertEquals($timestamp, $plan_record->get('start')->value);
+    $this->assertEquals(7 * 24, $plan_record->get('duration')->value);
+    $this->assertEquals(15 * 24, $plan_record->get('recovery')->value);
+
+    // Reload the form.
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
+
+    // Select the first asset and location and submit the form with a timestamp
+    // long after the last grazing event, to confirm that the log is pending.
+    $asset = reset($this->animalAssets);
+    $location = reset($this->landAssets);
+    $first_event = end($this->grazingEvents);
+    $timestamp = (int) $first_event->get('start')->value + (365 * 24 * 60 * 60);
+    $this->submitForm([
+      'asset' => $asset->label() . ' (' . $asset->id() . ')',
+      'location' => $location->label() . ' (' . $location->id() . ')',
+      'start[date]' => date('Y-m-d', $timestamp),
+      'start[time]' => date('H:i:s', $timestamp),
+      'duration' => 7 * 24,
+      'recovery' => 15 * 24,
+    ], 'Save');
+
+    // Confirm that the status messages are shown.
+    $this->assertSession()->pageTextContains('Created log: Move ' . $asset->label() . ' to ' . $location->label());
+    $this->assertSession()->pageTextContains('Added Grazing event: Move ' . $asset->label() . ' to ' . $location->label() . ' - ' . $this->plan->label());
+
+    // Confirm that a new log was created with the expected values.
+    $expected_log_count++;
+    $logs = $log_storage->loadMultiple();
+    $this->assertCount($expected_log_count, $logs);
+    $log = end($logs);
+    $this->assertEquals('activity', $log->bundle());
+    $this->assertEquals('Move ' . $asset->label() . ' to ' . $location->label(), $log->label());
+    $this->assertEquals($timestamp, $log->get('timestamp')->value);
+    $this->assertEquals($asset->id(), $log->get('asset')->target_id);
+    $this->assertEquals($location->id(), $log->get('location')->target_id);
+    $this->assertTrue((bool) $log->get('is_movement')->value);
+    $this->assertEquals('pending', $log->get('status')->value);
+
+    // Confirm that a new grazing event plan record was created with the
+    // expected values.
+    $expected_plan_record_count++;
+    $plan_records = $plan_record_storage->loadMultiple();
+    $this->assertCount($expected_plan_record_count, $plan_records);
+    $plan_record = end($plan_records);
+    $this->assertEquals($this->plan->id(), $plan_record->get('plan')->target_id);
+    $this->assertEquals($log->id(), $plan_record->get('log')->target_id);
+    $this->assertEquals($timestamp, $plan_record->get('start')->value);
+    $this->assertEquals(7 * 24, $plan_record->get('duration')->value);
+    $this->assertEquals(15 * 24, $plan_record->get('recovery')->value);
+
+    // Reload the form.
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
 
     // Get a timestamp for the next grazing event.
     $timestamp = $this->nextGrazingEventTimestamp();
@@ -74,6 +176,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
 
     // Submit the form.
     $edit = [
+      'existing_log' => TRUE,
       'log' => $log->label() . ' (' . $log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
@@ -135,6 +238,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $non_movement_log->save();
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
     $this->submitForm([
+      'existing_log' => TRUE,
       'log' => $non_movement_log->label() . ' (' . $non_movement_log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
@@ -158,6 +262,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $no_asset_log->save();
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
     $this->submitForm([
+      'existing_log' => TRUE,
       'log' => $no_asset_log->label() . ' (' . $no_asset_log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
@@ -181,6 +286,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $no_location_log->save();
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
     $this->submitForm([
+      'existing_log' => TRUE,
       'log' => $no_location_log->label() . ' (' . $no_location_log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
@@ -208,6 +314,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $multi_asset_log->save();
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
     $this->submitForm([
+      'existing_log' => TRUE,
       'log' => $multi_asset_log->label() . ' (' . $multi_asset_log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
@@ -236,6 +343,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $multi_location_log->save();
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
     $this->submitForm([
+      'existing_log' => TRUE,
       'log' => $multi_location_log->label() . ' (' . $multi_location_log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
@@ -259,6 +367,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     // confirm the existing movement log fields are pre-populated.
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event', ['query' => ['log' => $log->id()]]);
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->checkboxChecked('existing_log');
     $this->assertSession()->fieldValueEquals('log', $log->label() . ' (' . $log->id() . ')');
 
     // Submit the form, using the pre-populated existing movement log values.

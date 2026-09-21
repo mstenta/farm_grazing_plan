@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Allow the "Add grazing event" form to create new movement logs.
+
 ### Changed
 
 - Move add event form's movement log validation logic into an entity constraint
