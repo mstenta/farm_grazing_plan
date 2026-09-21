@@ -41,6 +41,11 @@ class GrazingPlanEventsForm extends FormBase {
       ];
     }
 
+    // Build vertical tabs.
+    $form['tabs'] = [
+      '#type' => 'vertical_tabs',
+    ];
+
     // Load all grazing events, grouped by asset.
     $grazing_events_by_asset = $this->grazingPlan->getGrazingEventsByAsset($plan);
 
@@ -69,6 +74,7 @@ class GrazingPlanEventsForm extends FormBase {
         '#type' => 'details',
         '#title' => $this->t('@asset Grazing Events', ['@asset' => $asset->label()]),
         '#open' => FALSE,
+        '#group' => 'tabs',
       ];
       $form['grazing_events'][$asset_id]['values'] = [
         '#type' => 'table',
