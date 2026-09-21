@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Move add event form's movement log validation logic into an entity constraint
   so that it is checked in more places (eg: API requests).
+- Hide assets that the user doesn't have access to from the timeline.
 
 ### Removed
 

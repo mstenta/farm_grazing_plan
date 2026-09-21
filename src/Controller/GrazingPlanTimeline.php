@@ -80,6 +80,11 @@ class GrazingPlanTimeline extends ControllerBase {
       /** @var \Drupal\asset\Entity\AssetInterface $asset */
       $asset = $this->entityTypeManager()->getStorage('asset')->load($asset_id);
 
+      // If the user does not have access to this asset, continue to the next.
+      if (!$asset->access('view')) {
+        continue;
+      }
+
       // Build the asset row values.
       $row_values = [
         'id' => "asset--$asset_id",
