@@ -21,7 +21,7 @@ class GrazingEvent extends FarmPlanRecordType {
    * {@inheritdoc}
    */
   public function buildFieldDefinitions() {
-    $fields = parent::buildFieldDefinitions();
+    $fields = [];
     $field_info = [
       'log' => [
         'type' => 'entity_reference',
