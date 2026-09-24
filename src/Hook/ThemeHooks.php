@@ -37,13 +37,10 @@ class ThemeHooks {
       return;
     }
 
-    // If there are no grazing events, bail.
-    if (empty($this->grazingPlan->getGrazingEvents($plan))) {
-      return;
+    // If there are grazing events, render the grazing plan timeline.
+    if (!empty($this->grazingPlan->getGrazingEvents($plan))) {
+      $build['grazing_plan_timeline'] = $this->formBuilder->getForm(GrazingPlanTimelineForm::class, $plan);
     }
-
-    // Render the grazing plan timeline.
-    $build['grazing_plan_timeline'] = $this->formBuilder->getForm(GrazingPlanTimelineForm::class, $plan);
 
     // If the user has plan update access, render the grazing plan form.
     if ($plan->access('update')) {
