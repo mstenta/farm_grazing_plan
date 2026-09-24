@@ -200,26 +200,38 @@ class GrazingPlanEventsForm extends FormBase {
     foreach ($grazing_event_values_by_asset as $grazing_events) {
       foreach ($grazing_events['values'] as $grazing_event_id => $values) {
 
-        // Load the grazing event.
-        /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEventInterface $grazing_event */
-        $grazing_event = $this->entityTypeManager->getStorage('plan_record')->load($grazing_event_id);
-
-        // Update the grazing event values.
-        $grazing_event->set('start', $values['planned_start']->getTimestamp());
-        $grazing_event->set('duration', $values['planned_duration']);
-        $grazing_event->set('recovery', empty($values['planned_recovery']) ? NULL : $values['planned_recovery']);
-        $grazing_event->save();
-
-        // Update the grazing event's log values.
-        $log = $grazing_event->getLog();
-        $log->set('location', $values['location']);
-        $log->set('timestamp', $values['actual_start']->getTimestamp());
-        $log->save();
+        // Update the grazing event and log with submitted values.
+        $this->updateGrazingEvent($grazing_event_id, $values);
       }
     }
 
     // Tell the user that grazing events were updated.
     $this->messenger()->addMessage($this->t('Updated the grazing events.'));
+  }
+
+  /**
+   * Update an existing grazing event.
+   *
+   * @param int $grazing_event_id
+   *   The grazing event ID.
+   * @param array $values
+   *   An array of values from $form_state.
+   */
+  protected function updateGrazingEvent(int $grazing_event_id, array $values) {
+    /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEventInterface $grazing_event */
+    $grazing_event = $this->entityTypeManager->getStorage('plan_record')->load($grazing_event_id);
+
+    // Update the grazing event values.
+    $grazing_event->set('start', $values['planned_start']->getTimestamp());
+    $grazing_event->set('duration', $values['planned_duration']);
+    $grazing_event->set('recovery', empty($values['planned_recovery']) ? NULL : $values['planned_recovery']);
+    $grazing_event->save();
+
+    // Update the grazing event's log values.
+    $log = $grazing_event->getLog();
+    $log->set('location', $values['location']);
+    $log->set('timestamp', $values['actual_start']->getTimestamp());
+    $log->save();
   }
 
 }
