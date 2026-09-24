@@ -36,6 +36,12 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     // Create mock plan entities.
     $this->createMockPlanEntities();
 
+    // Get plan_record entity storage.
+    $plan_record_storage = \Drupal::entityTypeManager()->getStorage('plan_record');
+
+    // Count plan_record entities.
+    $expected_plan_record_count = count($plan_record_storage->loadMultiple());
+
     // Attempt to load the add grazing event form and confirm that access is
     // denied.
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
@@ -79,26 +85,23 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     // Confirm that the status message is shown.
     $this->assertSession()->pageTextContains('Added Grazing event: ' . $log->label() . ' - ' . $this->plan->label());
 
-    // Get plan_record storage.
-    $plan_record_storage = \Drupal::entityTypeManager()->getStorage('plan_record');
-
     // Confirm the grazing event plan record was created with the expected
     // values.
+    $expected_plan_record_count++;
     $plan_records = $plan_record_storage->loadMultiple();
-    $this->assertCount(count($this->grazingEvents) + 1, $plan_records);
+    $this->assertCount($expected_plan_record_count, $plan_records);
     $plan_record = end($plan_records);
     $this->assertEquals($this->plan->id(), $plan_record->get('plan')->target_id);
     $this->assertEquals($log->id(), $plan_record->get('log')->target_id);
     $this->assertEquals($timestamp, $plan_record->get('start')->value);
     $this->assertEquals(7 * 24, $plan_record->get('duration')->value);
     $this->assertEquals(15 * 24, $plan_record->get('recovery')->value);
-    $this->grazingEvents[] = $plan_record;
 
     // Submit the same log a second time and confirm the duplicate check works.
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
     $this->submitForm($edit, 'Save');
     $this->assertSession()->pageTextContains('This log is already part of a grazing plan.');
-    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
 
     // Create a second plan and confirm that the log cannot be added to that
     // plan either.
@@ -110,7 +113,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->drupalGet('/plan/' . $plan2->id() . '/grazing/event');
     $this->submitForm($edit, 'Save');
     $this->assertSession()->pageTextContains('This log is already part of a grazing plan.');
-    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
 
     // Get a timestamp for the next grazing event.
     $timestamp = $this->nextGrazingEventTimestamp();
@@ -139,7 +142,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'recovery' => 15 * 24,
     ], 'Save');
     $this->assertSession()->pageTextContains('Only movement logs can be added to a grazing plan.');
-    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
 
     // Create a log without an asset and confirm that it cannot be added.
     $no_asset_log = Log::create([
@@ -162,7 +165,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'recovery' => 15 * 24,
     ], 'Save');
     $this->assertSession()->pageTextContains('This log does not reference an asset. A grazing event must move one asset.');
-    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
 
     // Create a log without a location and confirm that it cannot be added.
     $no_location_log = Log::create([
@@ -185,7 +188,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'recovery' => 15 * 24,
     ], 'Save');
     $this->assertSession()->pageTextContains('This log does not reference a location. A grazing event must move an asset to a location.');
-    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
 
     // Create a multi-asset log and confirm that it cannot be added.
     $multi_asset_log = Log::create([
@@ -213,7 +216,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     ], 'Save');
     $this->assertSession()->pageTextContains('This log references multiple assets. A grazing event can only move one asset.');
     $this->assertSession()->pageTextContains('Tip: The Group asset type can be used');
-    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
 
     // Create a multi-location log and confirm that it cannot be added.
     $multi_location_log = Log::create([
@@ -240,7 +243,7 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'recovery' => 15 * 24,
     ], 'Save');
     $this->assertSession()->pageTextContains('This log references multiple locations. A grazing event can only move an asset to a single location.');
-    $this->assertCount(count($this->grazingEvents), $plan_record_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
   }
 
 }
