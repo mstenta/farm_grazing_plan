@@ -55,6 +55,7 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
       'asset' => [],
       'location' => [],
       'is_movement' => FALSE,
+      'status' => 'pending',
     ];
     foreach ($modify_fields as $field_name => $value) {
       $this->assertGrazingEventLogRestrictedFieldsViolation($log, $field_name, $value);
@@ -68,10 +69,10 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
    *   The log entity.
    * @param string $field_name
    *   The field name to test.
-   * @param array|bool|int $value
+   * @param array|bool|int|string $value
    *   The field value to set.
    */
-  protected function assertGrazingEventLogRestrictedFieldsViolation(LogInterface $log, string $field_name, array|bool|int $value): void {
+  protected function assertGrazingEventLogRestrictedFieldsViolation(LogInterface $log, string $field_name, array|bool|int|string $value): void {
 
     // Remember the original field value.
     $original_value = $log->get($field_name)->getValue();
