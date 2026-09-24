@@ -8,6 +8,7 @@ use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\farm_grazing_plan\GrazingPlanInterface;
 use Drupal\log\Entity\Log;
 use Drupal\plan\Entity\PlanInterface;
@@ -145,6 +146,13 @@ class GrazingPlanEventsForm extends FormBase {
         '#value' => $this->t('Update grazing events'),
       ];
     }
+
+    // Add a link to the "Add grazing event" form.
+    $form['add_link'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Add a grazing event'),
+      '#url' => Url::fromRoute('farm_grazing_plan.add_event', ['plan' => $plan->id()]),
+    ];
 
     return $form;
   }
