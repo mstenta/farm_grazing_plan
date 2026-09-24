@@ -130,11 +130,12 @@ trait MockGrazingPlanEntitiesTrait {
     $this->plan->save();
 
     // Create activity logs and grazing events that move each animal through
-    // all paddocks.
+    // all paddocks. Mark the last grazing event log per animal as pending.
     foreach ($this->animalAssets as $animal_asset) {
-      foreach ($this->landAssets as $land_asset) {
+      foreach ($this->landAssets as $index => $land_asset) {
         $timestamp = $this->nextGrazingEventTimestamp();
-        $this->createMockGrazingEvent($timestamp, $animal_asset, $land_asset, TRUE, $this->plan);
+        $status = $index === count($this->landAssets) - 1 ? 'pending' : 'done';
+        $this->createMockGrazingEvent($timestamp, $animal_asset, $land_asset, TRUE, $this->plan, $status);
       }
     }
   }
