@@ -31,6 +31,7 @@ class GrazingEventLogRestrictedFieldsValidator extends ConstraintValidator imple
     'asset',
     'location',
     'is_movement',
+    'status',
   ];
 
   /**
