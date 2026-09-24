@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Drupal\Tests\farm_grazing_plan\Functional;
+namespace Drupal\Tests\farm_grazing_plan\FunctionalJavascript;
 
 use Drupal\Tests\farm_grazing_plan\Traits\MockGrazingPlanEntitiesTrait;
-use Drupal\Tests\farm_test\Functional\FarmBrowserTestBase;
+use Drupal\Tests\farm_test\FunctionalJavascript\FarmWebDriverTestBase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
@@ -14,7 +14,7 @@ use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
  */
 #[Group('farm_grazing_plan')]
 #[RunTestsInSeparateProcesses]
-class GrazingPlanEventsFormTest extends FarmBrowserTestBase {
+class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
 
   use MockGrazingPlanEntitiesTrait;
 
@@ -36,7 +36,8 @@ class GrazingPlanEventsFormTest extends FarmBrowserTestBase {
 
     // Attempt to load the grazing plan form and confirm that access is denied.
     $this->drupalGet('/plan/' . $this->plan->id());
-    $this->assertSession()->statusCodeEquals(403);
+    $this->assertSession()->pageTextContains('You are not authorized to access this page.');
+    $this->assertSession()->pageTextNotContains('Grazing events (by Asset)');
 
     // Create and log in a user with access to view grazing plans.
     $permissions = ['view any grazing plan'];
@@ -45,7 +46,8 @@ class GrazingPlanEventsFormTest extends FarmBrowserTestBase {
 
     // Load the grazing plan and confirm the user has access.
     $this->drupalGet('/plan/' . $this->plan->id());
-    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextNotContains('You are not authorized to access this page.');
+    $this->assertSession()->pageTextContains('Grazing events (by Asset)');
 
     // Confirm that the grazing plan form is inaccessible.
     $this->assertSession()->pageTextNotContains('Sheep 1 Grazing Events');
@@ -64,7 +66,6 @@ class GrazingPlanEventsFormTest extends FarmBrowserTestBase {
 
     // Load the grazing plan and confirm the user has access to the form.
     $this->drupalGet('/plan/' . $this->plan->id());
-    $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Sheep 1 Grazing Events');
 
     // Get the plan's grazing events grouped by asset.
@@ -101,34 +102,43 @@ class GrazingPlanEventsFormTest extends FarmBrowserTestBase {
       }
     }
 
-    // Build a set of form values to submit. Reverse the order of locations,
-    // shift the planned/actual start date/times ahead 25 hours, and double the
-    // planned duration and recovery times.
-    $edit = [];
+    // Reverse the order of locations, shift the planned/actual starts ahead
+    // 25 hours, and double the planned duration and recovery times.
     foreach ($grazing_events_by_asset as $asset_id => $grazing_events) {
+
+      // Click the vertical tab.
+      $asset = \Drupal::entityTypeManager()->getStorage('asset')->load($asset_id);
+      $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
+
+      // Iterate through the grazing event rows.
       $events = array_values($grazing_events);
       foreach ($events as $index => $grazing_event) {
         $prefix = 'grazing_events[' . $asset_id . '][values][' . $grazing_event->id() . ']';
 
         // Reverse the order of locations.
         $location = $events[count($events) - 1 - $index]->getLog()->get('location')->referencedEntities()[0];
-        $edit[$prefix . '[location]'] = $location->label() . ' (' . $location->id() . ')';
+        $this->getSession()->getPage()->fillField($prefix . '[location]', $location->label() . ' (' . $location->id() . ')');
 
-        // Shift the planned/actual start date/times ahead 25 hours.
-        $edit[$prefix . '[planned_start]'] = $grazing_event->get('start')->value + 25 * 60 * 60;
-        $edit[$prefix . '[actual_start]'] = $grazing_event->getLog()->get('timestamp')->value + 25 * 60 * 60;
+        // Shift the planned/actual starts ahead 25 hours.
+        $this->getSession()->getPage()->fillField($prefix . '[planned_start]', (string) ($grazing_event->get('start')->value + 25 * 60 * 60));
+        $this->getSession()->getPage()->fillField($prefix . '[actual_start]', (string) ($grazing_event->getLog()->get('timestamp')->value + 25 * 60 * 60));
 
         // Double the planned duration and recovery times.
-        $edit[$prefix . '[planned_duration]'] = $grazing_event->get('duration')->value * 2;
-        $edit[$prefix . '[planned_recovery]'] = $grazing_event->get('recovery')->value * 2;
+        $this->getSession()->getPage()->fillField($prefix . '[planned_duration]', (string) ($grazing_event->get('duration')->value * 2));
+        $this->getSession()->getPage()->fillField($prefix . '[planned_recovery]', (string) ($grazing_event->get('recovery')->value * 2));
       }
     }
 
-    // Submit the form.
-    $this->submitForm($edit, 'Update grazing events');
+    // Click on the first asset's vertical tab and press the submit button.
+    $asset = \Drupal::entityTypeManager()->getStorage('asset')->load(array_key_first($grazing_events_by_asset));
+    $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
+    $this->getSession()->getPage()->pressButton('Update grazing events');
 
     // Confirm that the status message is shown.
-    $this->assertSession()->pageTextContains('Updated the grazing events.');
+    $this->assertTrue($this->assertSession()->waitForText('Updated the grazing events.', 30000));
+
+    // Reload the page to ensure entities are refreshed.
+    $this->drupalGet('/plan/' . $this->plan->id());
 
     // Confirm the grazing events and logs are updated with the expected
     // values.
@@ -137,8 +147,8 @@ class GrazingPlanEventsFormTest extends FarmBrowserTestBase {
     foreach ($grazing_events_by_asset as $grazing_events) {
       foreach ($grazing_events as $grazing_event) {
 
-        // The grazing event should have the shifted start date/time and the
-        // doubled duration and recovery.
+        // The grazing event should have the shifted starts and the doubled
+        // duration and recovery.
         $updated_grazing_event = $plan_record_storage->load($grazing_event->id());
         $this->assertEquals($original[$grazing_event->id()]['start'] + 25 * 60 * 60, $updated_grazing_event->get('start')->value);
         $this->assertEquals($original[$grazing_event->id()]['duration'] * 2, $updated_grazing_event->get('duration')->value);
