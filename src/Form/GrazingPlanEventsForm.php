@@ -181,6 +181,7 @@ class GrazingPlanEventsForm extends FormBase {
     $fields['location'] = [
       '#type' => 'entity_autocomplete',
       '#title' => $this->t('Location'),
+      '#title_display' => 'hidden',
       '#target_type' => 'asset',
       '#selection_handler' => 'views',
       '#selection_settings' => [
@@ -200,6 +201,7 @@ class GrazingPlanEventsForm extends FormBase {
     $fields['planned_start'] = [
       '#type' => 'datetime',
       '#title' => $this->t('Planned start date/time'),
+      '#title_display' => 'hidden',
       '#default_value' => $defaults['planned_start'] ?? NULL,
       '#required' => TRUE,
     ];
@@ -208,6 +210,7 @@ class GrazingPlanEventsForm extends FormBase {
     $fields['actual_start'] = [
       '#type' => 'datetime',
       '#title' => $this->t('Actual start date/time'),
+      '#title_display' => 'hidden',
       '#default_value' => $defaults['actual_start'] ?? NULL,
       '#required' => TRUE,
     ];
@@ -216,6 +219,7 @@ class GrazingPlanEventsForm extends FormBase {
     $fields['planned_duration'] = [
       '#type' => 'number',
       '#title' => $this->t('Planned duration (hours)'),
+      '#title_display' => 'hidden',
       '#min' => 1,
       '#max' => 8760,
       '#scale' => 1,
@@ -227,6 +231,7 @@ class GrazingPlanEventsForm extends FormBase {
     $fields['planned_recovery'] = [
       '#type' => 'number',
       '#title' => $this->t('Planned recovery (hours)'),
+      '#title_display' => 'hidden',
       '#min' => 1,
       '#max' => 8760,
       '#scale' => 1,
