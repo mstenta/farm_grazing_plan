@@ -97,61 +97,16 @@ class GrazingPlanEventsForm extends FormBase {
         // Load the log.
         $log = $grazing_event->get('log')->referencedEntities()[0];
 
-        // Location (from log).
-        $form['grazing_events'][$asset_id]['values'][$grazing_event_id]['location'] = [
-          '#type' => 'entity_autocomplete',
-          '#title' => $this->t('Location'),
-          '#target_type' => 'asset',
-          '#selection_handler' => 'views',
-          '#selection_settings' => [
-            'view' => [
-              'view_name' => 'farm_location_reference',
-              'display_name' => 'entity_reference',
-              'arguments' => [],
-            ],
-            'match_operator' => 'CONTAINS',
-          ],
-          '#maxlength' => 1024,
-          '#default_value' => $log->get('location')->referencedEntities()[0],
-          '#required' => TRUE,
+        // Build the grazing event fields with default values from the grazing
+        // event and log.
+        $defaults = [
+          'location' => $log->get('location')->referencedEntities()[0],
+          'planned_start' => DrupalDateTime::createFromTimestamp($grazing_event->get('start')->value, $this->currentUser()->getTimeZone()),
+          'actual_start' => DrupalDateTime::createFromTimestamp($log->get('timestamp')->value, $this->currentUser()->getTimeZone()),
+          'planned_duration' => $grazing_event->get('duration')->value,
+          'planned_recovery' => $grazing_event->get('recovery')->value,
         ];
-
-        // Planned start date/time.
-        $form['grazing_events'][$asset_id]['values'][$grazing_event_id]['planned_start'] = [
-          '#type' => 'datetime',
-          '#title' => $this->t('Planned start date/time'),
-          '#default_value' => DrupalDateTime::createFromTimestamp($grazing_event->get('start')->value, $this->currentUser()->getTimeZone()),
-          '#required' => TRUE,
-        ];
-
-        // Actual start date/time (from log).
-        $form['grazing_events'][$asset_id]['values'][$grazing_event_id]['actual_start'] = [
-          '#type' => 'datetime',
-          '#title' => $this->t('Actual start date/time'),
-          '#default_value' => DrupalDateTime::createFromTimestamp($log->get('timestamp')->value, $this->currentUser()->getTimeZone()),
-          '#required' => TRUE,
-        ];
-
-        // Planned duration.
-        $form['grazing_events'][$asset_id]['values'][$grazing_event_id]['planned_duration'] = [
-          '#type' => 'number',
-          '#title' => $this->t('Planned duration (hours)'),
-          '#min' => 1,
-          '#max' => 8760,
-          '#scale' => 1,
-          '#required' => TRUE,
-          '#default_value' => $grazing_event->get('duration')->value,
-        ];
-
-        // Planned recovery.
-        $form['grazing_events'][$asset_id]['values'][$grazing_event_id]['planned_recovery'] = [
-          '#type' => 'number',
-          '#title' => $this->t('Planned recovery (hours)'),
-          '#min' => 1,
-          '#max' => 8760,
-          '#scale' => 1,
-          '#default_value' => $grazing_event->get('recovery')->value,
-        ];
+        $form['grazing_events'][$asset_id]['values'][$grazing_event_id] = $this->buildGrazingEventRowFields($defaults);
       }
 
       // Add a submit button to each asset's grazing events.
@@ -162,6 +117,77 @@ class GrazingPlanEventsForm extends FormBase {
     }
 
     return $form;
+  }
+
+  /**
+   * Build form fields for a grazing event row.
+   *
+   * @param array $defaults
+   *   The default row values, with keys: location, planned_start,
+   *   actual_start, planned_duration, planned_recovery.
+   *
+   * @return array
+   *   Returns a render array of the row's form fields.
+   */
+  protected function buildGrazingEventRowFields(array $defaults = []) {
+
+    // Location.
+    $fields['location'] = [
+      '#type' => 'entity_autocomplete',
+      '#title' => $this->t('Location'),
+      '#target_type' => 'asset',
+      '#selection_handler' => 'views',
+      '#selection_settings' => [
+        'view' => [
+          'view_name' => 'farm_location_reference',
+          'display_name' => 'entity_reference',
+          'arguments' => [],
+        ],
+        'match_operator' => 'CONTAINS',
+      ],
+      '#maxlength' => 1024,
+      '#default_value' => $defaults['location'] ?? NULL,
+      '#required' => TRUE,
+    ];
+
+    // Planned start date/time.
+    $fields['planned_start'] = [
+      '#type' => 'datetime',
+      '#title' => $this->t('Planned start date/time'),
+      '#default_value' => $defaults['planned_start'] ?? NULL,
+      '#required' => TRUE,
+    ];
+
+    // Actual start date/time.
+    $fields['actual_start'] = [
+      '#type' => 'datetime',
+      '#title' => $this->t('Actual start date/time'),
+      '#default_value' => $defaults['actual_start'] ?? NULL,
+      '#required' => TRUE,
+    ];
+
+    // Planned duration.
+    $fields['planned_duration'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Planned duration (hours)'),
+      '#min' => 1,
+      '#max' => 8760,
+      '#scale' => 1,
+      '#default_value' => $defaults['planned_duration'] ?? '',
+      '#required' => TRUE,
+    ];
+
+    // Planned recovery.
+    $fields['planned_recovery'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Planned recovery (hours)'),
+      '#min' => 1,
+      '#max' => 8760,
+      '#scale' => 1,
+      '#default_value' => $defaults['planned_recovery'] ?? '',
+    ];
+
+    return $fields;
   }
 
   /**
