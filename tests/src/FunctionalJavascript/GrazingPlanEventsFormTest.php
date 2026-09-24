@@ -160,6 +160,100 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
         $this->assertEquals($original[$grazing_event->id()]['location'], $log->get('location')->target_id);
       }
     }
+
+    // Reload the page to test the "Add grazing event" button.
+    $this->drupalGet('/plan/' . $this->plan->id());
+
+    // Reload the grazing events, now that they have been updated.
+    $grazing_events_by_asset = \Drupal::service('farm_grazing_plan')->getGrazingEventsByAsset($this->plan);
+
+    // Get the asset in the first vertical tab and its first and last grazing
+    // events.
+    $first_asset_id = array_key_first($grazing_events_by_asset);
+    $asset = \Drupal::entityTypeManager()->getStorage('asset')->load($first_asset_id);
+    $grazing_events = array_values($grazing_events_by_asset[$first_asset_id]);
+    $first_grazing_event = reset($grazing_events);
+    $last_grazing_event = end($grazing_events);
+
+    // The new row should be pre-filled based on the most recent grazing event:
+    // the planned and actual starts default to the most recent log timestamp
+    // plus the duration, and the duration and recovery default to the most
+    // recent grazing event's values.
+    $expected_start = $last_grazing_event->getLog()->get('timestamp')->value + $last_grazing_event->get('duration')->value * 60 * 60;
+    $expected_duration = $last_grazing_event->get('duration')->value;
+    $expected_recovery = $last_grazing_event->get('recovery')->value;
+
+    // Click the "Add grazing event" button in the first tab (by name, since
+    // there is one per asset).
+    $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
+    $button = $this->getSession()->getPage()->find('xpath', "//input[@name='add_grazing_event_{$first_asset_id}']");
+    $this->assertNotNull($button);
+    $button->press();
+
+    // Wait for Ajax.
+    $prefix = 'grazing_events[' . $first_asset_id . '][values][new_1]';
+    $this->assertNotNull($this->assertSession()->waitForField($prefix . '[location]', 30000));
+
+    // Confirm the new row is rendered with the expected pre-filled values.
+    $this->assertSession()->fieldValueEquals($prefix . '[location]', '');
+    $this->assertSession()->fieldValueEquals($prefix . '[planned_start]', (string) $expected_start);
+    $this->assertSession()->fieldValueEquals($prefix . '[actual_start]', (string) $expected_start);
+    $this->assertSession()->fieldValueEquals($prefix . '[planned_duration]', (string) $expected_duration);
+    $this->assertSession()->fieldValueEquals($prefix . '[planned_recovery]', (string) $expected_recovery);
+
+    // Confirm the existing rows are still present in the re-rendered table,
+    // and that only one new row was added.
+    $this->assertSession()->fieldExists('grazing_events[' . $first_asset_id . '][values][' . $first_grazing_event->id() . '][planned_duration]');
+    $this->assertSession()->fieldNotExists('grazing_events[' . $first_asset_id . '][values][new_2][location]');
+
+    // Set the location of the new grazing event.
+    $location = $this->landAssets[0];
+    $this->getSession()->getPage()->fillField($prefix . '[location]', $location->label() . ' (' . $location->id() . ')');
+
+    // Count log and plan_record entities.
+    $expected_log_count = count($log_storage->loadMultiple());
+    $expected_plan_record_count = count($plan_record_storage->loadMultiple());
+
+    // Submit the form.
+    $this->getSession()->getPage()->pressButton('Update grazing events');
+    $this->assertTrue($this->assertSession()->waitForText('Updated the grazing events.', 30000));
+
+    // Confirm that a new movement log was created with the expected values.
+    $expected_log_count++;
+    $logs = $log_storage->loadMultiple();
+    $this->assertCount($expected_log_count, $logs);
+    $log_ids = $log_storage->getQuery()
+      ->sort('id', 'DESC')
+      ->range(0, 1)
+      ->accessCheck(FALSE)
+      ->execute();
+    $log = $log_storage->load(reset($log_ids));
+    $this->assertEquals('activity', $log->bundle());
+    $this->assertEquals('Move ' . $asset->label() . ' to ' . $location->label(), $log->label());
+    $this->assertEquals($expected_start, $log->get('timestamp')->value);
+    $this->assertEquals($first_asset_id, $log->get('asset')->target_id);
+    $this->assertEquals($location->id(), $log->get('location')->target_id);
+    $this->assertTrue((bool) $log->get('is_movement')->value);
+    $expected_status = $expected_start <= time() ? 'done' : 'pending';
+    $this->assertEquals($expected_status, $log->get('status')->value);
+
+    // Confirm that a new grazing event plan record was created with the
+    // expected values.
+    $expected_plan_record_count++;
+    $plan_records = $plan_record_storage->loadMultiple();
+    $this->assertCount($expected_plan_record_count, $plan_records);
+    $plan_record_ids = $plan_record_storage->getQuery()
+      ->sort('id', 'DESC')
+      ->range(0, 1)
+      ->accessCheck(FALSE)
+      ->execute();
+    $plan_record = $plan_record_storage->load(reset($plan_record_ids));
+    $this->assertEquals('grazing_event', $plan_record->bundle());
+    $this->assertEquals($this->plan->id(), $plan_record->get('plan')->target_id);
+    $this->assertEquals($log->id(), $plan_record->get('log')->target_id);
+    $this->assertEquals($expected_start, $plan_record->get('start')->value);
+    $this->assertEquals($expected_duration, $plan_record->get('duration')->value);
+    $this->assertEquals($expected_recovery, $plan_record->get('recovery')->value);
   }
 
 }
