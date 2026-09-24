@@ -49,11 +49,6 @@ class GrazingPlanEventsForm extends FormBase {
     // Load all grazing events, grouped by asset.
     $grazing_events_by_asset = $this->grazingPlan->getGrazingEventsByAsset($plan);
 
-    // If there are no grazing events, stop here.
-    if (empty($grazing_events_by_asset)) {
-      return $form;
-    }
-
     // Build the grazing events as a form tree so form state values are built
     // as a nested array.
     $form['grazing_events']['#tree'] = TRUE;
