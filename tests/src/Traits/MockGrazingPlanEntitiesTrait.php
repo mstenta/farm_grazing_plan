@@ -141,8 +141,21 @@ trait MockGrazingPlanEntitiesTrait {
 
   /**
    * Create mock grazing event log (and optional plan_record) entity.
+   *
+   * @param int $timestamp
+   *   The log timestamp.
+   * @param \Drupal\asset\Entity\AssetInterface $asset
+   *   The animal asset.
+   * @param \Drupal\asset\Entity\AssetInterface $location
+   *   The location asset.
+   * @param bool $plan_record
+   *   Whether to also create a plan_record entity.
+   * @param \Drupal\plan\Entity\PlanInterface|null $plan
+   *   The plan entity.
+   * @param string $status
+   *   The log status, either 'done' or 'pending'.
    */
-  public function createMockGrazingEvent(int $timestamp, AssetInterface $asset, AssetInterface $location, bool $plan_record = TRUE, ?PlanInterface $plan = NULL) {
+  public function createMockGrazingEvent(int $timestamp, AssetInterface $asset, AssetInterface $location, bool $plan_record = TRUE, ?PlanInterface $plan = NULL, string $status = 'done') {
 
     // Create the log entity.
     $log = Log::create([
@@ -156,7 +169,7 @@ trait MockGrazingPlanEntitiesTrait {
         ['target_id' => $location->id()],
       ],
       'is_movement' => TRUE,
-      'status' => 'done',
+      'status' => $status,
     ]);
     $log->save();
     $this->movementLogs[] = $log;
