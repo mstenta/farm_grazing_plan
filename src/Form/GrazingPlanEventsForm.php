@@ -147,6 +147,14 @@ class GrazingPlanEventsForm extends FormBase {
       ];
     }
 
+    // Show a message if there are no grazing events yet.
+    if (empty($grazing_events_by_asset)) {
+      $form['no_events'] = [
+        '#type' => 'markup',
+        '#markup' => '<p>' . $this->t('There are no grazing events in this plan.') . '</p>',
+      ];
+    }
+
     // Add a link to the "Add grazing event" form.
     $form['add_link'] = [
       '#type' => 'link',
