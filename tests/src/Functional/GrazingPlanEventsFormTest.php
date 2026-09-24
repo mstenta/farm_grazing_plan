@@ -76,10 +76,8 @@ class GrazingPlanEventsFormTest extends FarmBrowserTestBase {
       foreach (array_keys($grazing_events) as $grazing_event_id) {
         $prefix = 'grazing_events[' . $asset_id . '][values][' . $grazing_event_id . ']';
         $this->assertSession()->fieldExists($prefix . '[location]');
-        $this->assertSession()->fieldExists($prefix . '[planned_start][date]');
-        $this->assertSession()->fieldExists($prefix . '[planned_start][time]');
-        $this->assertSession()->fieldExists($prefix . '[actual_start][date]');
-        $this->assertSession()->fieldExists($prefix . '[actual_start][time]');
+        $this->assertSession()->fieldExists($prefix . '[planned_start]');
+        $this->assertSession()->fieldExists($prefix . '[actual_start]');
         $this->assertSession()->fieldExists($prefix . '[planned_duration]');
         $this->assertSession()->fieldExists($prefix . '[planned_recovery]');
       }
@@ -117,12 +115,8 @@ class GrazingPlanEventsFormTest extends FarmBrowserTestBase {
         $edit[$prefix . '[location]'] = $location->label() . ' (' . $location->id() . ')';
 
         // Shift the planned/actual start date/times ahead 25 hours.
-        $planned_start = $grazing_event->get('start')->value + 25 * 60 * 60;
-        $actual_start = $grazing_event->getLog()->get('timestamp')->value + 25 * 60 * 60;
-        $edit[$prefix . '[planned_start][date]'] = date('Y-m-d', $planned_start);
-        $edit[$prefix . '[planned_start][time]'] = date('H:i:s', $planned_start);
-        $edit[$prefix . '[actual_start][date]'] = date('Y-m-d', $actual_start);
-        $edit[$prefix . '[actual_start][time]'] = date('H:i:s', $actual_start);
+        $edit[$prefix . '[planned_start]'] = $grazing_event->get('start')->value + 25 * 60 * 60;
+        $edit[$prefix . '[actual_start]'] = $grazing_event->getLog()->get('timestamp')->value + 25 * 60 * 60;
 
         // Double the planned duration and recovery times.
         $edit[$prefix . '[planned_duration]'] = $grazing_event->get('duration')->value * 2;

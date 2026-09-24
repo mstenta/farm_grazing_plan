@@ -87,15 +87,11 @@ class GrazingPlanEventsForm extends FormBase {
         '#type' => 'table',
         '#header' => [
           $this->t('Location'),
-          $this->t('Planned start date/time'),
-          $this->t('Actual start date/time'),
+          $this->t('Planned start'),
+          $this->t('Actual start'),
           $this->t('Planned duration (hours)'),
           $this->t('Planned recovery (hours)'),
         ],
-
-        // Set #input to FALSE otherwise datetime fields don't validate.
-        // @see https://www.drupal.org/project/drupal/issues/3554225
-        '#input' => FALSE,
 
         // Wrap the table in a div, so it can be replaced via Ajax.
         '#prefix' => '<div id="grazing-events-wrapper-' . $asset_id . '">',
@@ -112,8 +108,8 @@ class GrazingPlanEventsForm extends FormBase {
         // event and log.
         $defaults = [
           'location' => $log->get('location')->referencedEntities()[0],
-          'planned_start' => DrupalDateTime::createFromTimestamp($grazing_event->get('start')->value, $this->currentUser()->getTimeZone()),
-          'actual_start' => DrupalDateTime::createFromTimestamp($log->get('timestamp')->value, $this->currentUser()->getTimeZone()),
+          'planned_start' => $grazing_event->get('start')->value,
+          'actual_start' => $log->get('timestamp')->value,
           'planned_duration' => $grazing_event->get('duration')->value,
           'planned_recovery' => $grazing_event->get('recovery')->value,
         ];
@@ -197,20 +193,22 @@ class GrazingPlanEventsForm extends FormBase {
       '#required' => TRUE,
     ];
 
-    // Planned start date/time.
+    // Planned start.
     $fields['planned_start'] = [
-      '#type' => 'datetime',
-      '#title' => $this->t('Planned start date/time'),
+      '#type' => 'number',
+      '#title' => $this->t('Planned start'),
       '#title_display' => 'hidden',
+      '#scale' => 1,
       '#default_value' => $defaults['planned_start'] ?? NULL,
       '#required' => TRUE,
     ];
 
-    // Actual start date/time.
+    // Actual start.
     $fields['actual_start'] = [
-      '#type' => 'datetime',
-      '#title' => $this->t('Actual start date/time'),
+      '#type' => 'number',
+      '#title' => $this->t('Actual start'),
       '#title_display' => 'hidden',
+      '#scale' => 1,
       '#default_value' => $defaults['actual_start'] ?? NULL,
       '#required' => TRUE,
     ];
@@ -308,7 +306,7 @@ class GrazingPlanEventsForm extends FormBase {
       }
       $grazing_event = end($grazing_events);
       $log = $grazing_event->getLog();
-      $values['planned_start'] = $values['actual_start'] = DrupalDateTime::createFromTimestamp($log->get('timestamp')->value, $this->currentUser()->getTimeZone());
+      $values['planned_start'] = $values['actual_start'] = $log->get('timestamp')->value;
       $values['planned_duration'] = $grazing_event->get('duration')->value;
       $values['planned_recovery'] = $grazing_event->get('recovery')->value;
     }
@@ -316,27 +314,16 @@ class GrazingPlanEventsForm extends FormBase {
     // Build the default values for subsequent new rows from the previous new
     // row's values.
     else {
-
-      // Read the previous new row's values from the raw user input rather than
-      // the form state values. The "values" table sets #input to FALSE in
-      // order to work around a core bug where datetime fields do not validate
-      // inside a #tree table, so the table's values are not reflected in the
-      // form state values when the form is rebuilt via Ajax. The raw user
-      // input is populated from the browser's submitted form data before the
-      // form is built, so we use those values.
-      // @see https://www.drupal.org/project/drupal/issues/3554225
-      // @see \Drupal\Core\Form\FormBuilder::handleInputElement()
-      $user_input = $form_state->getUserInput();
-      $previous = $user_input['grazing_events'][$asset_id]['values']['new_' . ($row_num - 1)] ?? [];
-      $values['planned_start'] = $values['actual_start'] = DrupalDateTime::createFromFormat('Y-m-d H:i:s', $previous['actual_start']['date'] . ' ' . $previous['actual_start']['time'], $this->currentUser()->getTimeZone());
+      $previous = $form_state->getValue(['grazing_events', $asset_id, 'values', 'new_' . ($row_num - 1)]);
+      $values['planned_start'] = $values['actual_start'] = $previous['actual_start'];
       $values['planned_duration'] = $previous['planned_duration'] ?? NULL;
       $values['planned_recovery'] = $previous['planned_recovery'] ?? NULL;
     }
 
-    // The start date/time defaults to the previous start date/time plus the
-    // previous duration, if both are available.
+    // The planned and actual starts default to the previous actual start plus
+    // the previous duration.
     if (!empty($values['planned_duration'])) {
-      $values['planned_start'] = $values['actual_start'] = DrupalDateTime::createFromTimestamp($values['actual_start']->getTimestamp() + ($values['planned_duration'] * 60 * 60));
+      $values['planned_start'] = $values['actual_start'] = $values['actual_start'] + ($values['planned_duration'] * 60 * 60);
     }
 
     return $values;
@@ -382,7 +369,7 @@ class GrazingPlanEventsForm extends FormBase {
     $grazing_event = $this->entityTypeManager->getStorage('plan_record')->load($grazing_event_id);
 
     // Update the grazing event values.
-    $grazing_event->set('start', $values['planned_start']->getTimestamp());
+    $grazing_event->set('start', $values['planned_start']);
     $grazing_event->set('duration', $values['planned_duration']);
     $grazing_event->set('recovery', empty($values['planned_recovery']) ? NULL : $values['planned_recovery']);
     $grazing_event->save();
@@ -390,7 +377,7 @@ class GrazingPlanEventsForm extends FormBase {
     // Update the grazing event's log values.
     $log = $grazing_event->getLog();
     $log->set('location', $values['location']);
-    $log->set('timestamp', $values['actual_start']->getTimestamp());
+    $log->set('timestamp', $values['actual_start']);
     $log->save();
   }
 
@@ -415,10 +402,10 @@ class GrazingPlanEventsForm extends FormBase {
     $log = Log::create([
       'type' => 'activity',
       'name' => $this->t('Move @asset to @location', ['@asset' => $asset->label(), '@location' => $location->label()]),
-      'timestamp' => $values['actual_start']->getTimestamp(),
+      'timestamp' => $values['actual_start'],
       'asset' => [$asset],
       'location' => [$location],
-      'status' => $values['actual_start']->getTimestamp() <= $now->getTimestamp() ? 'done' : 'pending',
+      'status' => $values['actual_start'] <= $now->getTimestamp() ? 'done' : 'pending',
       'is_movement' => TRUE,
     ]);
     $log->save();
@@ -428,7 +415,7 @@ class GrazingPlanEventsForm extends FormBase {
       'type' => 'grazing_event',
       'plan' => $plan_id,
       'log' => $log->id(),
-      'start' => $values['planned_start']->getTimestamp(),
+      'start' => $values['planned_start'],
       'duration' => $values['planned_duration'],
       'recovery' => $values['planned_recovery'],
     ]);
