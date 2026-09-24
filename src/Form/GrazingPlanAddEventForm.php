@@ -6,8 +6,10 @@ namespace Drupal\farm_grazing_plan\Form;
 
 use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\log\Entity\Log;
 use Drupal\log\Entity\LogInterface;
 use Drupal\plan\Entity\PlanInterface;
@@ -21,6 +23,7 @@ class GrazingPlanAddEventForm extends FormBase {
 
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
+    protected ModuleHandlerInterface $moduleHandler,
   ) {}
 
   /**
@@ -84,6 +87,12 @@ class GrazingPlanAddEventForm extends FormBase {
         ],
       ],
     ];
+
+    // If the Movement quick form module is installed, add a link to it.
+    if ($this->moduleHandler->moduleExists('farm_quick_movement')) {
+      $quick_movement_url = Url::fromRoute('farm.quick.movement', ['plan' => $this->getRouteMatch()->getParameter('plan')->id()])->toString();
+      $form['log']['#description'] = '<p>' . $this->t('Tip: Use the <a href=":url">Movement quick form</a> to create a movement log. You will be redirected back here to fill in more details for the plan.', [':url' => $quick_movement_url]) . '</p>';
+    }
 
     // If a log ID was provided via query parameter, load it and set the
     // appropriate form values.
