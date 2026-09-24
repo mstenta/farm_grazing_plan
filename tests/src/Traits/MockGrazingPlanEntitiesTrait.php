@@ -131,7 +131,6 @@ trait MockGrazingPlanEntitiesTrait {
 
     // Create activity logs and grazing events that move each animal through
     // all paddocks.
-    $timestamp = NULL;
     foreach ($this->animalAssets as $animal_asset) {
       foreach ($this->landAssets as $land_asset) {
         $timestamp = $this->nextGrazingEventTimestamp();
