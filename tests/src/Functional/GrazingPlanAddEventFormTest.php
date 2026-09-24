@@ -244,6 +244,42 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     ], 'Save');
     $this->assertSession()->pageTextContains('This log references multiple locations. A grazing event can only move an asset to a single location.');
     $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
+
+    // Reload the form.
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
+
+    // Get a timestamp for the next grazing event.
+    $timestamp = $this->nextGrazingEventTimestamp();
+
+    // Create a movement log that is not yet linked to the plan.
+    $this->createMockGrazingEvent($timestamp, $this->animalAssets[0], $this->landAssets[0], FALSE);
+    $log = end($this->movementLogs);
+
+    // Load the add grazing event form with a log ID query parameter and
+    // confirm the existing movement log fields are pre-populated.
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event', ['query' => ['log' => $log->id()]]);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->fieldValueEquals('log', $log->label() . ' (' . $log->id() . ')');
+
+    // Submit the form, using the pre-populated existing movement log values.
+    $this->submitForm([
+      'start[date]' => date('Y-m-d', $timestamp),
+      'start[time]' => date('H:i:s', $timestamp),
+      'duration' => 7 * 24,
+      'recovery' => 15 * 24,
+    ], 'Save');
+
+    // Confirm that the status message is shown.
+    $this->assertSession()->pageTextContains('Added Grazing event: ' . $log->label() . ' - ' . $this->plan->label());
+
+    // Confirm the grazing event plan record was created with the expected
+    // values.
+    $expected_plan_record_count++;
+    $plan_records = $plan_record_storage->loadMultiple();
+    $this->assertCount($expected_plan_record_count, $plan_records);
+    $plan_record = end($plan_records);
+    $this->assertEquals($this->plan->id(), $plan_record->get('plan')->target_id);
+    $this->assertEquals($log->id(), $plan_record->get('log')->target_id);
   }
 
 }
