@@ -19,8 +19,6 @@ use Drupal\plan\Entity\PlanRecordInterface;
  */
 class GrazingPlanAddEventForm extends FormBase {
 
-  use AutowireTrait;
-
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
   ) {}
