@@ -86,7 +86,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     }
 
     // Confirm at least one submit button exists.
-    $this->assertSession()->buttonExists('Update grazing events');
+    $this->assertSession()->buttonExists('Save events');
 
     // Record the original values so that we can compare them later.
     $original = [];
@@ -134,7 +134,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     // Click on the first asset's vertical tab and press the submit button.
     $asset = \Drupal::entityTypeManager()->getStorage('asset')->load(array_key_first($grazing_events_by_asset));
     $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
-    $this->getSession()->getPage()->pressButton('Update grazing events');
+    $this->getSession()->getPage()->pressButton('Save events');
 
     // Confirm that the status message is shown.
     $this->assertTrue($this->assertSession()->waitForText('Updated the grazing events.', 30000));
@@ -219,7 +219,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $expected_plan_record_count = count($plan_record_storage->loadMultiple());
 
     // Submit the form.
-    $this->getSession()->getPage()->pressButton('Update grazing events');
+    $this->getSession()->getPage()->pressButton('Save events');
     $this->assertTrue($this->assertSession()->waitForText('Updated the grazing events.', 30000));
 
     // Confirm that a new movement log was created with the expected values.
