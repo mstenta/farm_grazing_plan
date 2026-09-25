@@ -74,8 +74,9 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     // Confirm the expected fields are visible for each asset and each of its
     // grazing events.
     foreach ($grazing_events_by_asset as $asset_id => $grazing_events) {
-      foreach (array_keys($grazing_events) as $grazing_event_id) {
-        $prefix = 'grazing_events[' . $asset_id . '][values][' . $grazing_event_id . ']';
+      foreach ($grazing_events as $grazing_event_id => $grazing_event) {
+        $status = $grazing_event->getLog()->get('status')->value;
+        $prefix = 'grazing_events[' . $asset_id . '][' . $status . '][' . $grazing_event_id . ']';
         $this->assertSession()->fieldExists($prefix . '[location]');
         $this->assertSession()->fieldExists($prefix . '[planned_start]');
         $this->assertSession()->fieldExists($prefix . '[actual_start]');
@@ -113,7 +114,8 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
       // Iterate through the grazing event rows.
       $events = array_values($grazing_events);
       foreach ($events as $index => $grazing_event) {
-        $prefix = 'grazing_events[' . $asset_id . '][values][' . $grazing_event->id() . ']';
+        $status = $grazing_event->getLog()->get('status')->value;
+        $prefix = 'grazing_events[' . $asset_id . '][' . $status . '][' . $grazing_event->id() . ']';
 
         // Reverse the order of locations.
         $location = $events[count($events) - 1 - $index]->getLog()->get('location')->referencedEntities()[0];
@@ -191,7 +193,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $button->press();
 
     // Wait for Ajax.
-    $prefix = 'grazing_events[' . $first_asset_id . '][values][new_1]';
+    $prefix = 'grazing_events[' . $first_asset_id . '][pending][new_1]';
     $this->assertNotNull($this->assertSession()->waitForField($prefix . '[location]', 30000));
 
     // Confirm the new row is rendered with the expected pre-filled values.
@@ -201,10 +203,12 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $this->assertSession()->fieldValueEquals($prefix . '[planned_duration]', (string) $expected_duration);
     $this->assertSession()->fieldValueEquals($prefix . '[planned_recovery]', (string) $expected_recovery);
 
-    // Confirm the existing rows are still present in the re-rendered table,
-    // and that only one new row was added.
-    $this->assertSession()->fieldExists('grazing_events[' . $first_asset_id . '][values][' . $first_grazing_event->id() . '][planned_duration]');
-    $this->assertSession()->fieldNotExists('grazing_events[' . $first_asset_id . '][values][new_2][location]');
+    // Confirm the existing rows are still present, and that only one new row
+    // was added. The pending event should still be present in the re-rendered
+    // pending table.
+    $this->assertSession()->fieldExists('grazing_events[' . $first_asset_id . '][done][' . $first_grazing_event->id() . '][planned_duration]');
+    $this->assertSession()->fieldExists('grazing_events[' . $first_asset_id . '][pending][' . $last_grazing_event->id() . '][planned_duration]');
+    $this->assertSession()->fieldNotExists('grazing_events[' . $first_asset_id . '][pending][new_2][location]');
 
     // Set the location of the new grazing event.
     $location = $this->landAssets[0];
