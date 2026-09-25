@@ -89,8 +89,8 @@ class GrazingPlanEventsForm extends FormBase {
       }
 
       // Create two tables for done and pending grazing events.
-      $done_table = $this->buildGrazingEventTable($done_events);
-      $pending_table = $this->buildGrazingEventTable($pending_events);
+      $done_table = $this->buildGrazingEventTable($done_events, $this->t('Completed events'));
+      $pending_table = $this->buildGrazingEventTable($pending_events, $this->t('Pending events'));
 
       // Wrap the pending table in a div, so it can be replaced via Ajax.
       $pending_table['#prefix'] = '<div id="pending-grazing-events-wrapper-' . $asset_id . '">';
@@ -159,15 +159,18 @@ class GrazingPlanEventsForm extends FormBase {
    *
    * @param \Drupal\farm_grazing_plan\Bundle\GrazingEvent[] $grazing_events
    *   The grazing events to include in the table.
+   * @param string|\Drupal\Core\StringTranslation\TranslatableMarkup $caption
+   *   The table caption.
    *
    * @return array
    *   Returns a render array of the table, with one row per grazing event.
    */
-  protected function buildGrazingEventTable(array $grazing_events): array {
+  protected function buildGrazingEventTable(array $grazing_events, $caption): array {
 
-    // Initialize the table with column headers.
+    // Initialize the table with a caption and column headers.
     $table = [
       '#type' => 'table',
+      '#caption' => $caption,
       '#header' => [
         $this->t('Location'),
         $this->t('Planned start'),
