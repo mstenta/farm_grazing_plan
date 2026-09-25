@@ -105,7 +105,7 @@ class GrazingPlanEventsForm extends FormBase {
         $row_key = 'new_' . $row_num;
         $defaults = $this->getNewGrazingEventRowDefaults($asset_id, $row_num, $grazing_events, $form_state);
         $defaults['weight'] = count($pending_events) + ($row_num - 1);
-        $pending_table[$row_key] = $this->buildGrazingEventRowFields('pending', $defaults, $group);
+        $pending_table[$row_key] = $this->buildGrazingEventRowFields('pending', $defaults, $group, TRUE);
       }
 
       // Add the tables to a collapsed details box for this asset.
@@ -256,11 +256,14 @@ class GrazingPlanEventsForm extends FormBase {
    *   duration and recovery values are in days.
    * @param string|null $group
    *   The tabledrag group class, for the draggable pending table.
+   * @param bool $location_editable
+   *   Whether the location is editable. The location of a saved grazing
+   *   event is not editable, and is displayed as a link instead.
    *
    * @return array
    *   Returns a render array of the row's form fields.
    */
-  protected function buildGrazingEventRowFields(string $status, array $defaults = [], ?string $group = NULL) {
+  protected function buildGrazingEventRowFields(string $status, array $defaults = [], ?string $group = NULL, bool $location_editable = FALSE) {
     $fields = [];
 
     // Mark the pending rows as draggable, and set the row weight.
@@ -302,25 +305,37 @@ class GrazingPlanEventsForm extends FormBase {
     // Grazing events that are pending can be edited.
     elseif ($status == 'pending') {
 
-      // Location.
-      $fields['location'] = [
-        '#type' => 'entity_autocomplete',
-        '#title' => $this->t('Location'),
-        '#title_display' => 'hidden',
-        '#target_type' => 'asset',
-        '#selection_handler' => 'views',
-        '#selection_settings' => [
-          'view' => [
-            'view_name' => 'farm_location_reference',
-            'display_name' => 'entity_reference',
-            'arguments' => [],
+      // Location. The location of a saved pending grazing event is not
+      // editable, and is displayed as a link. The location of a new row can
+      // be edited until the row is saved.
+      if ($location_editable) {
+        $fields['location'] = [
+          '#type' => 'entity_autocomplete',
+          '#title' => $this->t('Location'),
+          '#title_display' => 'hidden',
+          '#target_type' => 'asset',
+          '#selection_handler' => 'views',
+          '#selection_settings' => [
+            'view' => [
+              'view_name' => 'farm_location_reference',
+              'display_name' => 'entity_reference',
+              'arguments' => [],
+            ],
+            'match_operator' => 'CONTAINS',
           ],
-          'match_operator' => 'CONTAINS',
-        ],
-        '#maxlength' => 1024,
-        '#default_value' => $defaults['location'] ?? NULL,
-        '#required' => TRUE,
-      ];
+          '#maxlength' => 1024,
+          '#default_value' => $defaults['location'] ?? NULL,
+          '#required' => TRUE,
+        ];
+      }
+      else {
+        /** @var \Drupal\asset\Entity\AssetInterface $location */
+        $location = $defaults['location'];
+        $fields['location'] = [
+          '#type' => 'markup',
+          '#markup' => $location->toLink()->toString(),
+        ];
+      }
 
       // Pending start. The pending start is computed from the previous event
       // (timestamp + duration), so it is not editable. The value is displayed
@@ -607,9 +622,9 @@ class GrazingPlanEventsForm extends FormBase {
     $grazing_event->save();
 
     // Update the grazing event's log values. The actual start (log timestamp)
-    // is kept in sync with the pending start.
+    // is kept in sync with the pending start. The location is not editable,
+    // so it is not updated.
     $log = $grazing_event->getLog();
-    $log->set('location', $values['location']);
     $log->set('timestamp', $values['planned_start']);
     $log->save();
   }

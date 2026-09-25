@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Log timestamps are updated automatically to match pending event start dates.
   - Pending events can be rearranged via drag-and-drop. Dates are recomputed
     automatically.
+  - Only duration and recovery are editable in pending events.
 
 ## [1.0.0-alpha4] 2026-10-02
 
