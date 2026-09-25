@@ -105,13 +105,16 @@ class GrazingPlanEventsForm extends FormBase {
       }
 
       // Add the tables to a collapsed details box for this asset.
+      // Only show done events if there are any.
       $form['grazing_events'][$asset_id] = [
         '#type' => 'details',
         '#title' => $this->t('@asset Grazing Events', ['@asset' => $asset->label()]),
         '#open' => FALSE,
         '#group' => 'tabs',
       ];
-      $form['grazing_events'][$asset_id]['done'] = $done_table;
+      if (!empty($done_events)) {
+        $form['grazing_events'][$asset_id]['done'] = $done_table;
+      }
       $form['grazing_events'][$asset_id]['pending'] = $pending_table;
 
       // Add a button to add a new grazing event row via Ajax.
