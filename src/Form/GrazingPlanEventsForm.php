@@ -190,16 +190,16 @@ class GrazingPlanEventsForm extends FormBase {
       $headers = [
         $this->t('Location'),
         $this->t('Actual start'),
-        $this->t('Planned duration (hours)'),
-        $this->t('Planned recovery (hours)'),
+        $this->t('Planned duration'),
+        $this->t('Planned recovery'),
       ];
     }
     else {
       $headers = [
         $this->t('Location'),
         $this->t('Pending start'),
-        $this->t('Planned duration (hours)'),
-        $this->t('Planned recovery (hours)'),
+        $this->t('Planned duration'),
+        $this->t('Planned recovery'),
       ];
     }
     $table = [
@@ -229,13 +229,13 @@ class GrazingPlanEventsForm extends FormBase {
       $log = $grazing_event->getLog();
 
       // Build the grazing event fields with default values from the grazing
-      // event and log.
+      // event and log. The durations are converted from hours to days.
       $defaults = [
         'location' => $log->get('location')->referencedEntities()[0],
         'planned_start' => $grazing_event->get('start')->value,
         'actual_start' => $log->get('timestamp')->value,
-        'planned_duration' => $grazing_event->get('duration')->value,
-        'planned_recovery' => $grazing_event->get('recovery')->value,
+        'planned_duration' => $grazing_event->get('duration')->value / 24,
+        'planned_recovery' => !empty($grazing_event->get('recovery')->value) ? $grazing_event->get('recovery')->value / 24 : NULL,
         'weight' => $weight,
       ];
       $table[$grazing_event_id] = $this->buildGrazingEventRowFields($status, $defaults, $group);
@@ -252,7 +252,8 @@ class GrazingPlanEventsForm extends FormBase {
    *   The status of the grazing events (done/pending).
    * @param array $defaults
    *   The default row values, with keys: location, planned_start,
-   *   actual_start, planned_duration, planned_recovery, weight.
+   *   actual_start, planned_duration, planned_recovery, weight. The
+   *   duration and recovery values are in days.
    * @param string|null $group
    *   The tabledrag group class, for the draggable pending table.
    *
@@ -279,22 +280,22 @@ class GrazingPlanEventsForm extends FormBase {
         '#markup' => $location->toLink()->toString(),
       ];
 
-      // Actual start.
+      // Actual start. Show the date only, without the time.
       $fields['actual_start'] = [
         '#type' => 'markup',
-        '#markup' => date('Y-m-d H:i:s', (int) $defaults['actual_start']),
+        '#markup' => date('Y-m-d', (int) $defaults['actual_start']),
       ];
 
-      // Planned duration.
+      // Planned duration, in days.
       $fields['planned_duration'] = [
         '#type' => 'markup',
-        '#markup' => $this->t('@duration hours', ['@duration' => $defaults['planned_duration']]),
+        '#markup' => $this->t('@duration days', ['@duration' => round((float) $defaults['planned_duration'], 2)]),
       ];
 
-      // Planned recovery.
+      // Planned recovery, in days.
       $fields['planned_recovery'] = [
         '#type' => 'markup',
-        '#markup' => !empty($defaults['planned_recovery']) ? $this->t('@recovery hours', ['@recovery' => $defaults['planned_recovery']]) : '',
+        '#markup' => !empty($defaults['planned_recovery']) ? $this->t('@recovery days', ['@recovery' => round((float) $defaults['planned_recovery'], 2)]) : '',
       ];
     }
 
@@ -328,28 +329,28 @@ class GrazingPlanEventsForm extends FormBase {
       $fields['planned_start'] = [
         '#type' => 'hidden',
         '#default_value' => $planned_start,
-        '#prefix' => empty($planned_start) ? '' : date('Y-m-d H:i:s', (int) $planned_start),
+        '#prefix' => empty($planned_start) ? '' : date('Y-m-d', (int) $planned_start),
       ];
 
-      // Planned duration.
+      // Planned duration, in days.
       $fields['planned_duration'] = [
         '#type' => 'number',
-        '#title' => $this->t('Planned duration (hours)'),
+        '#title' => $this->t('Duration (days)'),
         '#title_display' => 'hidden',
         '#min' => 1,
-        '#max' => 8760,
+        '#max' => 365,
         '#scale' => 1,
         '#default_value' => $defaults['planned_duration'] ?? '',
         '#required' => TRUE,
       ];
 
-      // Planned recovery.
+      // Planned recovery, in days.
       $fields['planned_recovery'] = [
         '#type' => 'number',
-        '#title' => $this->t('Planned recovery (hours)'),
+        '#title' => $this->t('Recovery (days)'),
         '#title_display' => 'hidden',
-        '#min' => 1,
-        '#max' => 8760,
+        '#min' => 0,
+        '#max' => 365,
         '#scale' => 1,
         '#default_value' => $defaults['planned_recovery'] ?? '',
       ];
@@ -417,7 +418,8 @@ class GrazingPlanEventsForm extends FormBase {
    *
    * @return array
    *   Returns an array of default values with keys: location, planned_start,
-   *   planned_duration, planned_recovery.
+   *   planned_duration, planned_recovery. The duration and recovery values
+   *   are in days.
    */
   protected function getNewGrazingEventRowDefaults($asset_id, int $row_num, array $grazing_events, FormStateInterface $form_state) {
 
@@ -438,8 +440,10 @@ class GrazingPlanEventsForm extends FormBase {
       $grazing_event = end($grazing_events);
       $log = $grazing_event->getLog();
       $values['planned_start'] = $log->get('timestamp')->value;
-      $values['planned_duration'] = $grazing_event->get('duration')->value;
-      $values['planned_recovery'] = $grazing_event->get('recovery')->value;
+
+      // Convert the durations from hours to days.
+      $values['planned_duration'] = $grazing_event->get('duration')->value / 24;
+      $values['planned_recovery'] = !empty($grazing_event->get('recovery')->value) ? $grazing_event->get('recovery')->value / 24 : NULL;
     }
 
     // Build the default values for subsequent new rows from the previous new
@@ -452,9 +456,9 @@ class GrazingPlanEventsForm extends FormBase {
     }
 
     // The pending start defaults to the previous pending start plus the
-    // previous duration.
+    // previous duration, in days.
     if (!empty($values['planned_duration'])) {
-      $values['planned_start'] = $values['planned_start'] + ($values['planned_duration'] * 60 * 60);
+      $values['planned_start'] = $values['planned_start'] + ($values['planned_duration'] * 24 * 60 * 60);
     }
 
     return $values;
@@ -561,8 +565,8 @@ class GrazingPlanEventsForm extends FormBase {
     $previous_duration = 0;
     foreach ($rows as &$values) {
 
-      // Convert duration from hours to seconds.
-      $duration = (int) round((float) ($values['planned_duration'] ?? 0) * 60 * 60);
+      // Convert duration from days to seconds.
+      $duration = (int) round((float) ($values['planned_duration'] ?? 0) * 24 * 60 * 60);
 
       // The first event starts at the end of the last completed event, or
       // keeps its submitted start date if there are no completed events.
@@ -595,10 +599,11 @@ class GrazingPlanEventsForm extends FormBase {
     /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEventInterface $grazing_event */
     $grazing_event = $this->entityTypeManager->getStorage('plan_record')->load($grazing_event_id);
 
-    // Update the grazing event values.
+    // Update the grazing event values, converting the durations from days to
+    // hours.
     $grazing_event->set('start', $values['planned_start']);
-    $grazing_event->set('duration', $values['planned_duration']);
-    $grazing_event->set('recovery', empty($values['planned_recovery']) ? NULL : $values['planned_recovery']);
+    $grazing_event->set('duration', (int) round($values['planned_duration'] * 24));
+    $grazing_event->set('recovery', empty($values['planned_recovery']) ? NULL : (int) round($values['planned_recovery'] * 24));
     $grazing_event->save();
 
     // Update the grazing event's log values. The actual start (log timestamp)
@@ -637,14 +642,14 @@ class GrazingPlanEventsForm extends FormBase {
     ]);
     $log->save();
 
-    // Create the grazing event.
+    // Create the grazing event, converting the durations from days to hours.
     $grazing_event = PlanRecord::create([
       'type' => 'grazing_event',
       'plan' => $plan_id,
       'log' => $log->id(),
       'start' => $values['planned_start'],
-      'duration' => $values['planned_duration'],
-      'recovery' => $values['planned_recovery'],
+      'duration' => (int) round($values['planned_duration'] * 24),
+      'recovery' => empty($values['planned_recovery']) ? NULL : (int) round($values['planned_recovery'] * 24),
     ]);
     $grazing_event->save();
   }
