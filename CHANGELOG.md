@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Show completed and pending events in separate tables.
   - Only pending events can be edited.
   - Completed events show the actual start date.
+  - Pending events show the pending start date.
+  - Log timestamps are updated automatically to match pending event start dates.
   - Pending events can be rearranged via drag-and-drop.
 
 ## [1.0.0-alpha4] 2026-10-02

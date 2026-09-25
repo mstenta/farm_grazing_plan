@@ -185,7 +185,7 @@ class GrazingPlanEventsForm extends FormBase {
 
     // Initialize the table with a caption and column headers. The start
     // columns differ by status: completed events show only the actual start,
-    // while pending events show the planned and actual starts.
+    // while pending events show only the pending start.
     if ($status == 'done') {
       $headers = [
         $this->t('Location'),
@@ -197,8 +197,7 @@ class GrazingPlanEventsForm extends FormBase {
     else {
       $headers = [
         $this->t('Location'),
-        $this->t('Planned start'),
-        $this->t('Actual start'),
+        $this->t('Pending start'),
         $this->t('Planned duration (hours)'),
         $this->t('Planned recovery (hours)'),
       ];
@@ -322,23 +321,13 @@ class GrazingPlanEventsForm extends FormBase {
         '#required' => TRUE,
       ];
 
-      // Planned start.
+      // Pending start.
       $fields['planned_start'] = [
         '#type' => 'number',
-        '#title' => $this->t('Planned start'),
+        '#title' => $this->t('Pending start'),
         '#title_display' => 'hidden',
         '#scale' => 1,
         '#default_value' => $defaults['planned_start'] ?? NULL,
-        '#required' => TRUE,
-      ];
-
-      // Actual start.
-      $fields['actual_start'] = [
-        '#type' => 'number',
-        '#title' => $this->t('Actual start'),
-        '#title_display' => 'hidden',
-        '#scale' => 1,
-        '#default_value' => $defaults['actual_start'] ?? NULL,
         '#required' => TRUE,
       ];
 
@@ -427,7 +416,8 @@ class GrazingPlanEventsForm extends FormBase {
    *   The form state.
    *
    * @return array
-   *   Returns an array of default values with keys: start, duration, recovery.
+   *   Returns an array of default values with keys: location, planned_start,
+   *   planned_duration, planned_recovery.
    */
   protected function getNewGrazingEventRowDefaults($asset_id, int $row_num, array $grazing_events, FormStateInterface $form_state) {
 
@@ -435,7 +425,6 @@ class GrazingPlanEventsForm extends FormBase {
     $values = [
       'location' => NULL,
       'planned_start' => NULL,
-      'actual_start' => NULL,
       'planned_duration' => NULL,
       'planned_recovery' => NULL,
     ];
@@ -448,7 +437,7 @@ class GrazingPlanEventsForm extends FormBase {
       }
       $grazing_event = end($grazing_events);
       $log = $grazing_event->getLog();
-      $values['planned_start'] = $values['actual_start'] = $log->get('timestamp')->value;
+      $values['planned_start'] = $log->get('timestamp')->value;
       $values['planned_duration'] = $grazing_event->get('duration')->value;
       $values['planned_recovery'] = $grazing_event->get('recovery')->value;
     }
@@ -457,15 +446,15 @@ class GrazingPlanEventsForm extends FormBase {
     // row's values.
     else {
       $previous = $form_state->getValue(['grazing_events', $asset_id, 'pending', 'new_' . ($row_num - 1)]);
-      $values['planned_start'] = $values['actual_start'] = $previous['actual_start'];
+      $values['planned_start'] = $previous['planned_start'];
       $values['planned_duration'] = $previous['planned_duration'] ?? NULL;
       $values['planned_recovery'] = $previous['planned_recovery'] ?? NULL;
     }
 
-    // The planned and actual starts default to the previous actual start plus
-    // the previous duration.
+    // The pending start defaults to the previous pending start plus the
+    // previous duration.
     if (!empty($values['planned_duration'])) {
-      $values['planned_start'] = $values['actual_start'] = $values['actual_start'] + ($values['planned_duration'] * 60 * 60);
+      $values['planned_start'] = $values['planned_start'] + ($values['planned_duration'] * 60 * 60);
     }
 
     return $values;
@@ -487,13 +476,9 @@ class GrazingPlanEventsForm extends FormBase {
     $grazing_event_values_by_asset = $form_state->getValue('grazing_events');
     foreach ($grazing_event_values_by_asset as $asset_id => $grazing_events) {
 
-      // Update the completed grazing events with the submitted values.
-      foreach ($grazing_events['done'] ?? [] as $row_key => $values) {
-        $this->updateGrazingEvent((int) $row_key, $values);
-      }
-
       // Update and reorder the pending grazing events, recomputing their
       // start dates if the order has changed.
+      // Completed grazing events are not editable, so they are not updated.
       $this->processPendingGrazingEvents($plan, (int) $asset_id, $grazing_events['pending'] ?? []);
     }
 
@@ -622,18 +607,17 @@ class GrazingPlanEventsForm extends FormBase {
       // keeps its submitted start date if there are no completed events.
       if ($previous_start === NULL) {
         if ($anchor_start !== NULL) {
-          $values['planned_start'] = $values['actual_start'] = $anchor_start;
+          $values['planned_start'] = $anchor_start;
         }
       }
 
       // Subsequent events start at the end of the previous event.
       else {
-        $start = $previous_start + $previous_duration;
-        $values['planned_start'] = $values['actual_start'] = $start;
+        $values['planned_start'] = $previous_start + $previous_duration;
       }
 
       // Update previous start and duration tracking variables.
-      $previous_start = (int) $values['actual_start'];
+      $previous_start = (int) $values['planned_start'];
       $previous_duration = $duration;
     }
   }
@@ -656,10 +640,11 @@ class GrazingPlanEventsForm extends FormBase {
     $grazing_event->set('recovery', empty($values['planned_recovery']) ? NULL : $values['planned_recovery']);
     $grazing_event->save();
 
-    // Update the grazing event's log values.
+    // Update the grazing event's log values. The actual start (log timestamp)
+    // is kept in sync with the pending start.
     $log = $grazing_event->getLog();
     $log->set('location', $values['location']);
-    $log->set('timestamp', $values['actual_start']);
+    $log->set('timestamp', $values['planned_start']);
     $log->save();
   }
 
@@ -683,7 +668,7 @@ class GrazingPlanEventsForm extends FormBase {
     $log = Log::create([
       'type' => 'activity',
       'name' => $this->t('Move @asset to @location', ['@asset' => $asset->label(), '@location' => $location->label()]),
-      'timestamp' => $values['actual_start'],
+      'timestamp' => $values['planned_start'],
       'asset' => [$asset],
       'location' => [$location],
       'status' => 'pending',

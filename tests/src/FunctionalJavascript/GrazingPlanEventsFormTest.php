@@ -82,7 +82,6 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
         $prefix = 'grazing_events[' . $asset_id . '][' . $status . '][' . $grazing_event_id . ']';
         $this->assertSession()->fieldExists($prefix . '[location]');
         $this->assertSession()->fieldExists($prefix . '[planned_start]');
-        $this->assertSession()->fieldExists($prefix . '[actual_start]');
         $this->assertSession()->fieldExists($prefix . '[planned_duration]');
         $this->assertSession()->fieldExists($prefix . '[planned_recovery]');
       }
@@ -127,9 +126,8 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
         $location = $events[count($events) - 1 - $index]->getLog()->get('location')->referencedEntities()[0];
         $this->getSession()->getPage()->fillField($prefix . '[location]', $location->label() . ' (' . $location->id() . ')');
 
-        // Shift the planned/actual starts ahead 25 hours.
+        // Shift the pending starts ahead 25 hours.
         $this->getSession()->getPage()->fillField($prefix . '[planned_start]', (string) ($grazing_event->get('start')->value + 25 * 60 * 60));
-        $this->getSession()->getPage()->fillField($prefix . '[actual_start]', (string) ($grazing_event->getLog()->get('timestamp')->value + 25 * 60 * 60));
 
         // Double the planned duration and recovery times.
         $this->getSession()->getPage()->fillField($prefix . '[planned_duration]', (string) ($grazing_event->get('duration')->value * 2));
@@ -159,7 +157,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
           continue;
         }
 
-        // The grazing event should have the shifted starts and the doubled
+        // The grazing event should have the shifted start and the doubled
         // duration and recovery.
         $updated_grazing_event = $plan_record_storage->load($grazing_event->id());
         $this->assertEquals($original[$grazing_event->id()]['start'] + 25 * 60 * 60, $updated_grazing_event->get('start')->value);
@@ -187,9 +185,9 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $last_grazing_event = end($grazing_events);
 
     // The new row should be pre-filled based on the most recent grazing event:
-    // the planned and actual starts default to the most recent log timestamp
-    // plus the duration, and the duration and recovery default to the most
-    // recent grazing event's values.
+    // the pending start defaults to the most recent log timestamp plus the
+    // duration, and the duration and recovery default to the most recent
+    // grazing event's values.
     $expected_start = $last_grazing_event->getLog()->get('timestamp')->value + $last_grazing_event->get('duration')->value * 60 * 60;
     $expected_duration = $last_grazing_event->get('duration')->value;
     $expected_recovery = $last_grazing_event->get('recovery')->value;
@@ -208,7 +206,6 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     // Confirm the new row is rendered with the expected pre-filled values.
     $this->assertSession()->fieldValueEquals($prefix . '[location]', '');
     $this->assertSession()->fieldValueEquals($prefix . '[planned_start]', (string) $expected_start);
-    $this->assertSession()->fieldValueEquals($prefix . '[actual_start]', (string) $expected_start);
     $this->assertSession()->fieldValueEquals($prefix . '[planned_duration]', (string) $expected_duration);
     $this->assertSession()->fieldValueEquals($prefix . '[planned_recovery]', (string) $expected_recovery);
 
