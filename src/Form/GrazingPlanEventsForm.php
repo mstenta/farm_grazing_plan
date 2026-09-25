@@ -242,6 +242,7 @@ class GrazingPlanEventsForm extends FormBase {
     // reordered.
     if ($status == 'pending') {
       $table['#header'][] = $this->t('Weight');
+      $table['#header'][] = $this->t('Operations');
       $table['#tabledrag'] = [
         [
           'action' => 'order',
@@ -445,6 +446,11 @@ class GrazingPlanEventsForm extends FormBase {
         '#delta' => 100,
         '#default_value' => $defaults['weight'] ?? 0,
         '#attributes' => ['class' => [$group]],
+      ];
+
+      // Operations container.
+      $fields['operations'] = [
+        '#type' => 'container',
       ];
     }
 
