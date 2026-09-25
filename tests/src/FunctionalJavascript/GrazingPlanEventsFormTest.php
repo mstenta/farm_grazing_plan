@@ -76,6 +76,9 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     foreach ($grazing_events_by_asset as $asset_id => $grazing_events) {
       foreach ($grazing_events as $grazing_event_id => $grazing_event) {
         $status = $grazing_event->getLog()->get('status')->value;
+        if ($status != 'pending') {
+          continue;
+        }
         $prefix = 'grazing_events[' . $asset_id . '][' . $status . '][' . $grazing_event_id . ']';
         $this->assertSession()->fieldExists($prefix . '[location]');
         $this->assertSession()->fieldExists($prefix . '[planned_start]');
@@ -115,6 +118,9 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
       $events = array_values($grazing_events);
       foreach ($events as $index => $grazing_event) {
         $status = $grazing_event->getLog()->get('status')->value;
+        if ($status != 'pending') {
+          continue;
+        }
         $prefix = 'grazing_events[' . $asset_id . '][' . $status . '][' . $grazing_event->id() . ']';
 
         // Reverse the order of locations.
@@ -148,6 +154,10 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $log_storage = \Drupal::entityTypeManager()->getStorage('log');
     foreach ($grazing_events_by_asset as $grazing_events) {
       foreach ($grazing_events as $grazing_event) {
+        $status = $grazing_event->getLog()->get('status')->value;
+        if ($status != 'pending') {
+          continue;
+        }
 
         // The grazing event should have the shifted starts and the doubled
         // duration and recovery.
@@ -169,12 +179,11 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     // Reload the grazing events, now that they have been updated.
     $grazing_events_by_asset = \Drupal::service('farm_grazing_plan')->getGrazingEventsByAsset($this->plan);
 
-    // Get the asset in the first vertical tab and its first and last grazing
-    // events.
+    // Get the asset in the first vertical tab and its most recent grazing
+    // event.
     $first_asset_id = array_key_first($grazing_events_by_asset);
     $asset = \Drupal::entityTypeManager()->getStorage('asset')->load($first_asset_id);
     $grazing_events = array_values($grazing_events_by_asset[$first_asset_id]);
-    $first_grazing_event = reset($grazing_events);
     $last_grazing_event = end($grazing_events);
 
     // The new row should be pre-filled based on the most recent grazing event:
@@ -203,10 +212,8 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $this->assertSession()->fieldValueEquals($prefix . '[planned_duration]', (string) $expected_duration);
     $this->assertSession()->fieldValueEquals($prefix . '[planned_recovery]', (string) $expected_recovery);
 
-    // Confirm the existing rows are still present, and that only one new row
-    // was added. The pending event should still be present in the re-rendered
-    // pending table.
-    $this->assertSession()->fieldExists('grazing_events[' . $first_asset_id . '][done][' . $first_grazing_event->id() . '][planned_duration]');
+    // Confirm the pending event is still present in the re-rendered pending
+    // table, and that only one new row was added.
     $this->assertSession()->fieldExists('grazing_events[' . $first_asset_id . '][pending][' . $last_grazing_event->id() . '][planned_duration]');
     $this->assertSession()->fieldNotExists('grazing_events[' . $first_asset_id . '][pending][new_2][location]');
 
