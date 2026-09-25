@@ -116,6 +116,13 @@ class GrazingPlanEventsForm extends FormBase {
       }
       $form['grazing_events'][$asset_id]['pending'] = $pending_table;
 
+      // Add a submit button to each asset's grazing events.
+      $form['grazing_events'][$asset_id]['submit'] = [
+        '#type' => 'submit',
+        '#value' => $this->t('Save events'),
+        '#button_type' => 'primary',
+      ];
+
       // Add a button to add a new grazing event row via Ajax.
       $form['grazing_events'][$asset_id]['add'] = [
         '#type' => 'submit',
@@ -126,13 +133,6 @@ class GrazingPlanEventsForm extends FormBase {
           'callback' => [$this, 'addGrazingEventRowAjaxCallback'],
           'wrapper' => 'pending-grazing-events-wrapper-' . $asset_id,
         ],
-      ];
-
-      // Add a submit button to each asset's grazing events.
-      $form['grazing_events'][$asset_id]['submit'] = [
-        '#type' => 'submit',
-        '#value' => $this->t('Save events'),
-        '#button_type' => 'primary',
       ];
     }
 
