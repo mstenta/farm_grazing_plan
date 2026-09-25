@@ -183,17 +183,30 @@ class GrazingPlanEventsForm extends FormBase {
       $caption = $this->t('Pending events');
     }
 
-    // Initialize the table with a caption and column headers.
-    $table = [
-      '#type' => 'table',
-      '#caption' => $caption,
-      '#header' => [
+    // Initialize the table with a caption and column headers. The start
+    // columns differ by status: completed events show only the actual start,
+    // while pending events show the planned and actual starts.
+    if ($status == 'done') {
+      $headers = [
+        $this->t('Location'),
+        $this->t('Actual start'),
+        $this->t('Planned duration (hours)'),
+        $this->t('Planned recovery (hours)'),
+      ];
+    }
+    else {
+      $headers = [
         $this->t('Location'),
         $this->t('Planned start'),
         $this->t('Actual start'),
         $this->t('Planned duration (hours)'),
         $this->t('Planned recovery (hours)'),
-      ],
+      ];
+    }
+    $table = [
+      '#type' => 'table',
+      '#caption' => $caption,
+      '#header' => $headers,
     ];
 
     // Make the pending table draggable, so the pending grazing events can be
@@ -265,12 +278,6 @@ class GrazingPlanEventsForm extends FormBase {
       $fields['location'] = [
         '#type' => 'markup',
         '#markup' => $location->toLink()->toString(),
-      ];
-
-      // Planned start.
-      $fields['planned_start'] = [
-        '#type' => 'markup',
-        '#markup' => date('Y-m-d H:i:s', (int) $defaults['planned_start']),
       ];
 
       // Actual start.
