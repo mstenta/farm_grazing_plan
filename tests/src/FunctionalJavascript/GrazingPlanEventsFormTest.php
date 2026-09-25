@@ -163,7 +163,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
       }
     }
 
-    // Reload the page to test the "Add grazing event" button.
+    // Reload the page to test the "Add event" button.
     $this->drupalGet('/plan/' . $this->plan->id());
 
     // Reload the grazing events, now that they have been updated.
@@ -185,7 +185,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $expected_duration = $last_grazing_event->get('duration')->value;
     $expected_recovery = $last_grazing_event->get('recovery')->value;
 
-    // Click the "Add grazing event" button in the first tab (by name, since
+    // Click the "Add event" button in the first tab (by name, since
     // there is one per asset).
     $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
     $button = $this->getSession()->getPage()->find('xpath', "//input[@name='add_grazing_event_{$first_asset_id}']");

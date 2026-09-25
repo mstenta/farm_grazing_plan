@@ -120,7 +120,7 @@ class GrazingPlanEventsForm extends FormBase {
       // Add a button to add a new grazing event row via Ajax.
       $form['grazing_events'][$asset_id]['add'] = [
         '#type' => 'submit',
-        '#value' => $this->t('Add grazing event'),
+        '#value' => $this->t('Add event'),
         '#name' => 'add_grazing_event_' . $asset_id,
         '#submit' => [[$this, 'addGrazingEventRow']],
         '#ajax' => [
@@ -280,7 +280,7 @@ class GrazingPlanEventsForm extends FormBase {
   }
 
   /**
-   * Submit handler for the "Add grazing event" button.
+   * Submit handler for the "Add event" button.
    *
    * Increments the number of new grazing event rows for the triggering asset.
    */
@@ -302,7 +302,7 @@ class GrazingPlanEventsForm extends FormBase {
   }
 
   /**
-   * Ajax callback for the "Add grazing event" button.
+   * Ajax callback for the "Add event" button.
    *
    * Returns the table for the triggering asset so that the new row is
    * rendered.
