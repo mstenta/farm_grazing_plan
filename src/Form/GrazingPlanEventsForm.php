@@ -132,6 +132,7 @@ class GrazingPlanEventsForm extends FormBase {
       $form['grazing_events'][$asset_id]['submit'] = [
         '#type' => 'submit',
         '#value' => $this->t('Save events'),
+        '#button_type' => 'primary',
       ];
     }
 
