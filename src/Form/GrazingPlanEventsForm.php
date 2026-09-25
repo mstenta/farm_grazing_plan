@@ -112,7 +112,7 @@ class GrazingPlanEventsForm extends FormBase {
       // Only show done events if there are any.
       $form['grazing_events'][$asset_id] = [
         '#type' => 'details',
-        '#title' => $this->t('@asset Grazing Events', ['@asset' => $asset->label()]),
+        '#title' => $asset->label(),
         '#open' => FALSE,
         '#group' => 'tabs',
       ];
