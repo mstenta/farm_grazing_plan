@@ -88,19 +88,24 @@ class GrazingPlanEventsForm extends FormBase {
       }
 
       // Create two tables for done and pending grazing events.
+      // The pending table is draggable, so the user can reorder the pending
+      // grazing events. The tabledrag group class is unique per asset.
+      $group = 'grazing-event-order-' . $asset_id;
       $done_table = $this->buildGrazingEventTable('done', $done_events);
-      $pending_table = $this->buildGrazingEventTable('pending', $pending_events);
+      $pending_table = $this->buildGrazingEventTable('pending', $pending_events, $group);
 
       // Wrap the pending table in a div, so it can be replaced via Ajax.
       $pending_table['#prefix'] = '<div id="pending-grazing-events-wrapper-' . $asset_id . '">';
       $pending_table['#suffix'] = '</div>';
 
-      // Add new grazing event rows, if any were added via Ajax.
+      // Add new grazing event rows, if any were added via Ajax. New rows are
+      // appended to the end of the pending table, after the existing rows.
       $num_new_rows = $new_rows_by_asset[$asset_id] ?? 0;
       for ($row_num = 1; $row_num <= $num_new_rows; $row_num++) {
         $row_key = 'new_' . $row_num;
         $defaults = $this->getNewGrazingEventRowDefaults($asset_id, $row_num, $grazing_events, $form_state);
-        $pending_table[$row_key] = $this->buildGrazingEventRowFields('pending', $defaults);
+        $defaults['weight'] = count($pending_events) + ($row_num - 1);
+        $pending_table[$row_key] = $this->buildGrazingEventRowFields('pending', $defaults, $group);
       }
 
       // Add the tables to a collapsed details box for this asset.
@@ -161,11 +166,13 @@ class GrazingPlanEventsForm extends FormBase {
    *   The status of the grazing events (done/pending).
    * @param \Drupal\farm_grazing_plan\Bundle\GrazingEvent[] $grazing_events
    *   The grazing events to include in the table.
+   * @param string|null $group
+   *   The tabledrag group class, for the draggable pending table.
    *
    * @return array
    *   Returns a render array of the table, with one row per grazing event.
    */
-  protected function buildGrazingEventTable(string $status, array $grazing_events): array {
+  protected function buildGrazingEventTable(string $status, array $grazing_events, ?string $group = NULL): array {
 
     // Set the caption based on the status.
     $caption = '';
@@ -189,7 +196,21 @@ class GrazingPlanEventsForm extends FormBase {
       ],
     ];
 
+    // Make the pending table draggable, so the pending grazing events can be
+    // reordered.
+    if ($status == 'pending') {
+      $table['#header'][] = $this->t('Weight');
+      $table['#tabledrag'] = [
+        [
+          'action' => 'order',
+          'relationship' => 'sibling',
+          'group' => $group,
+        ],
+      ];
+    }
+
     // Iterate through the grazing events for this asset.
+    $weight = 0;
     foreach ($grazing_events as $grazing_event_id => $grazing_event) {
 
       // Load the log.
@@ -203,8 +224,10 @@ class GrazingPlanEventsForm extends FormBase {
         'actual_start' => $log->get('timestamp')->value,
         'planned_duration' => $grazing_event->get('duration')->value,
         'planned_recovery' => $grazing_event->get('recovery')->value,
+        'weight' => $weight,
       ];
-      $table[$grazing_event_id] = $this->buildGrazingEventRowFields($status, $defaults);
+      $table[$grazing_event_id] = $this->buildGrazingEventRowFields($status, $defaults, $group);
+      $weight++;
     }
 
     return $table;
@@ -217,13 +240,21 @@ class GrazingPlanEventsForm extends FormBase {
    *   The status of the grazing events (done/pending).
    * @param array $defaults
    *   The default row values, with keys: location, planned_start,
-   *   actual_start, planned_duration, planned_recovery.
+   *   actual_start, planned_duration, planned_recovery, weight.
+   * @param string|null $group
+   *   The tabledrag group class, for the draggable pending table.
    *
    * @return array
    *   Returns a render array of the row's form fields.
    */
-  protected function buildGrazingEventRowFields(string $status, array $defaults = []) {
+  protected function buildGrazingEventRowFields(string $status, array $defaults = [], ?string $group = NULL) {
     $fields = [];
+
+    // Mark the pending rows as draggable, and set the row weight.
+    if ($status == 'pending') {
+      $fields['#attributes']['class'][] = 'draggable';
+      $fields['#weight'] = $defaults['weight'] ?? 0;
+    }
 
     // Grazing events that are done cannot be edited.
     if ($status == 'done') {
@@ -326,6 +357,18 @@ class GrazingPlanEventsForm extends FormBase {
         '#scale' => 1,
         '#default_value' => $defaults['planned_recovery'] ?? '',
       ];
+
+      // Weight is used to determine the order of the rows, and is updated by
+      // the tabledrag JavaScript when a row is dragged, or via dropdown if
+      // dragging is disabled.
+      $fields['weight'] = [
+        '#type' => 'weight',
+        '#title' => $this->t('Weight'),
+        '#title_display' => 'invisible',
+        '#delta' => 100,
+        '#default_value' => $defaults['weight'] ?? 0,
+        '#attributes' => ['class' => [$group]],
+      ];
     }
 
     return $fields;
@@ -426,28 +469,166 @@ class GrazingPlanEventsForm extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
 
+    // Load the plan. Bail if null.
+    /** @var \Drupal\plan\Entity\PlanInterface|null $plan */
+    $plan = $this->entityTypeManager->getStorage('plan')->load($form_state->get('plan_id'));
+    if (is_null($plan)) {
+      return;
+    }
+
     // Iterate through the submitted grazing events for each asset.
     $grazing_event_values_by_asset = $form_state->getValue('grazing_events');
     foreach ($grazing_event_values_by_asset as $asset_id => $grazing_events) {
-      foreach (['done', 'pending'] as $table) {
-        foreach ($grazing_events[$table] as $row_key => $values) {
 
-          // If the row key is numeric, update the grazing event and log with
-          // submitted values.
-          if (is_numeric($row_key)) {
-            $this->updateGrazingEvent($row_key, $values);
-          }
-
-          // Otherwise, create a new grazing event and log.
-          else {
-            $this->createGrazingEvent((int) $form_state->get('plan_id'), $asset_id, $values);
-          }
-        }
+      // Update the completed grazing events with the submitted values.
+      foreach ($grazing_events['done'] ?? [] as $row_key => $values) {
+        $this->updateGrazingEvent((int) $row_key, $values);
       }
+
+      // Update and reorder the pending grazing events, recomputing their
+      // start dates if the order has changed.
+      $this->processPendingGrazingEvents($plan, (int) $asset_id, $grazing_events['pending'] ?? []);
     }
 
     // Tell the user that grazing events were updated.
     $this->messenger()->addMessage($this->t('Updated the grazing events.'));
+  }
+
+  /**
+   * Process the submitted pending grazing events for an asset.
+   *
+   * Reorders the rows based on the submitted weight values, recomputes the
+   * start dates if the order has changed, and updates or creates the grazing
+   * events and logs.
+   *
+   * @param \Drupal\plan\Entity\PlanInterface $plan
+   *   The grazing plan.
+   * @param int $asset_id
+   *   The asset ID.
+   * @param array $rows
+   *   The submitted pending grazing event values, keyed by row key.
+   */
+  protected function processPendingGrazingEvents(PlanInterface $plan, int $asset_id, array $rows) {
+
+    // Bail if there are no pending rows.
+    if (empty($rows)) {
+      return;
+    }
+
+    // Sort the submitted rows by their submitted weight values, to get the
+    // order of the rows as submitted.
+    uasort($rows, function ($a, $b) {
+      return ((int) ($a['weight'] ?? 0)) <=> ((int) ($b['weight'] ?? 0));
+    });
+
+    // If the submitted order differs from the saved order, recompute the
+    // start dates of all pending rows.
+    if (array_keys($rows) !== $this->getSavedPendingGrazingEventOrder($plan, $asset_id, $rows)) {
+      $this->recomputePendingGrazingEventStarts($plan, $asset_id, $rows);
+    }
+
+    // Update the existing grazing events, and create the new ones.
+    foreach ($rows as $row_key => $values) {
+      if (is_numeric($row_key)) {
+        $this->updateGrazingEvent((int) $row_key, $values);
+      }
+      else {
+        $this->createGrazingEvent((int) $plan->id(), $asset_id, $values);
+      }
+    }
+  }
+
+  /**
+   * Get the saved order of the pending grazing events for an asset.
+   *
+   * @param \Drupal\plan\Entity\PlanInterface $plan
+   *   The grazing plan.
+   * @param int $asset_id
+   *   The asset ID.
+   * @param array $rows
+   *   The submitted pending grazing event values, keyed by row key.
+   *
+   * @return array
+   *   Returns the row keys in saved order, with existing grazing event IDs
+   *   first in chronological order, and new rows last in row number order.
+   */
+  protected function getSavedPendingGrazingEventOrder(PlanInterface $plan, int $asset_id, array $rows): array {
+
+    // Get the saved grazing events for the asset, sorted chronologically.
+    $grazing_events = $this->grazingPlan->getGrazingEventsByAsset($plan)[$asset_id] ?? [];
+
+    // Get the pending grazing events, in chronological order.
+    $saved_order = [];
+    foreach ($grazing_events as $grazing_event_id => $grazing_event) {
+      if ($grazing_event->getLog()->get('status')->value !== 'done') {
+        $saved_order[] = $grazing_event_id;
+      }
+    }
+
+    // Append the new rows, in row number order.
+    $new_row_keys = array_filter(array_keys($rows), 'is_string');
+    usort($new_row_keys, function ($a, $b) {
+      return ((int) substr($a, 4)) <=> ((int) substr($b, 4));
+    });
+
+    return array_merge($saved_order, $new_row_keys);
+  }
+
+  /**
+   * Recompute the start dates of the pending grazing events for an asset.
+   *
+   * The first event starts at the end of the last completed event for the
+   * asset, or keeps its submitted start date if there are no completed
+   * events. Each subsequent event starts at the end of the previous event,
+   * based on its planned duration.
+   *
+   * @param \Drupal\plan\Entity\PlanInterface $plan
+   *   The grazing plan.
+   * @param int $asset_id
+   *   The asset ID.
+   * @param array $rows
+   *   The pending grazing event values, keyed by row key, in the new order.
+   *   The values are modified in place.
+   */
+  protected function recomputePendingGrazingEventStarts(PlanInterface $plan, int $asset_id, array &$rows) {
+
+    // Get the end of the last completed grazing event for the asset, to use
+    // as the anchor for the recomputed start dates. The events are sorted
+    // chronologically, so the last completed event is the most recent.
+    $grazing_events = $this->grazingPlan->getGrazingEventsByAsset($plan)[$asset_id] ?? [];
+    $anchor_start = NULL;
+    foreach ($grazing_events as $grazing_event) {
+      if ($grazing_event->getLog()->get('status')->value === 'done') {
+        $anchor_start = $grazing_event->getLog()->get('timestamp')->value + ($grazing_event->get('duration')->value * 60 * 60);
+      }
+    }
+
+    // Cascade the start dates through the pending events.
+    $previous_start = NULL;
+    $previous_duration = 0;
+    foreach ($rows as &$values) {
+
+      // Convert duration from hours to seconds.
+      $duration = (int) round((float) ($values['planned_duration'] ?? 0) * 60 * 60);
+
+      // The first event starts at the end of the last completed event, or
+      // keeps its submitted start date if there are no completed events.
+      if ($previous_start === NULL) {
+        if ($anchor_start !== NULL) {
+          $values['planned_start'] = $values['actual_start'] = $anchor_start;
+        }
+      }
+
+      // Subsequent events start at the end of the previous event.
+      else {
+        $start = $previous_start + $previous_duration;
+        $values['planned_start'] = $values['actual_start'] = $start;
+      }
+
+      // Update previous start and duration tracking variables.
+      $previous_start = (int) $values['actual_start'];
+      $previous_duration = $duration;
+    }
   }
 
   /**

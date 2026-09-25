@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Add multiple pending grazing events for each asset.
   - Show completed and pending events in separate tables.
   - Only pending events can be edited.
+  - Pending events can be rearranged via drag-and-drop.
 
 ## [1.0.0-alpha4] 2026-10-02
 
