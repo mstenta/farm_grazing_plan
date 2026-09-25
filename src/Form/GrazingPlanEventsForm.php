@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\farm_grazing_plan\Form;
 
-use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -440,14 +439,13 @@ class GrazingPlanEventsForm extends FormBase {
     $location = $this->entityTypeManager->getStorage('asset')->load($values['location']);
 
     // Create the movement log.
-    $now = new DrupalDateTime('now', $this->currentUser()->getTimeZone());
     $log = Log::create([
       'type' => 'activity',
       'name' => $this->t('Move @asset to @location', ['@asset' => $asset->label(), '@location' => $location->label()]),
       'timestamp' => $values['actual_start'],
       'asset' => [$asset],
       'location' => [$location],
-      'status' => $values['actual_start'] <= $now->getTimestamp() ? 'done' : 'pending',
+      'status' => 'pending',
       'is_movement' => TRUE,
     ]);
     $log->save();
