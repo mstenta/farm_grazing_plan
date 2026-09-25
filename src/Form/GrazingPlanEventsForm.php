@@ -321,14 +321,14 @@ class GrazingPlanEventsForm extends FormBase {
         '#required' => TRUE,
       ];
 
-      // Pending start.
+      // Pending start. The pending start is computed from the previous event
+      // (timestamp + duration), so it is not editable. The value is displayed
+      // as markup and included as a hidden field for the submit handlers.
+      $planned_start = $defaults['planned_start'] ?? NULL;
       $fields['planned_start'] = [
-        '#type' => 'number',
-        '#title' => $this->t('Pending start'),
-        '#title_display' => 'hidden',
-        '#scale' => 1,
-        '#default_value' => $defaults['planned_start'] ?? NULL,
-        '#required' => TRUE,
+        '#type' => 'hidden',
+        '#default_value' => $planned_start,
+        '#prefix' => empty($planned_start) ? '' : date('Y-m-d H:i:s', (int) $planned_start),
       ];
 
       // Planned duration.
@@ -476,9 +476,9 @@ class GrazingPlanEventsForm extends FormBase {
     $grazing_event_values_by_asset = $form_state->getValue('grazing_events');
     foreach ($grazing_event_values_by_asset as $asset_id => $grazing_events) {
 
-      // Update and reorder the pending grazing events, recomputing their
-      // start dates if the order has changed.
-      // Completed grazing events are not editable, so they are not updated.
+      // Update and reorder the pending grazing events and recompute their
+      // start dates. Completed grazing events are not editable, so they are
+      // not updated.
       $this->processPendingGrazingEvents($plan, (int) $asset_id, $grazing_events['pending'] ?? []);
     }
 
@@ -490,8 +490,7 @@ class GrazingPlanEventsForm extends FormBase {
    * Process the submitted pending grazing events for an asset.
    *
    * Reorders the rows based on the submitted weight values, recomputes the
-   * start dates if the order has changed, and updates or creates the grazing
-   * events and logs.
+   * start dates, and updates or creates the grazing events and logs.
    *
    * @param \Drupal\plan\Entity\PlanInterface $plan
    *   The grazing plan.
@@ -513,11 +512,9 @@ class GrazingPlanEventsForm extends FormBase {
       return ((int) ($a['weight'] ?? 0)) <=> ((int) ($b['weight'] ?? 0));
     });
 
-    // If the submitted order differs from the saved order, recompute the
-    // start dates of all pending rows.
-    if (array_keys($rows) !== $this->getSavedPendingGrazingEventOrder($plan, $asset_id, $rows)) {
-      $this->recomputePendingGrazingEventStarts($plan, $asset_id, $rows);
-    }
+    // The pending start dates are not editable, so always recompute them
+    // based on the previous events' start dates and durations.
+    $this->recomputePendingGrazingEventStarts($plan, $asset_id, $rows);
 
     // Update the existing grazing events, and create the new ones.
     foreach ($rows as $row_key => $values) {
@@ -528,42 +525,6 @@ class GrazingPlanEventsForm extends FormBase {
         $this->createGrazingEvent((int) $plan->id(), $asset_id, $values);
       }
     }
-  }
-
-  /**
-   * Get the saved order of the pending grazing events for an asset.
-   *
-   * @param \Drupal\plan\Entity\PlanInterface $plan
-   *   The grazing plan.
-   * @param int $asset_id
-   *   The asset ID.
-   * @param array $rows
-   *   The submitted pending grazing event values, keyed by row key.
-   *
-   * @return array
-   *   Returns the row keys in saved order, with existing grazing event IDs
-   *   first in chronological order, and new rows last in row number order.
-   */
-  protected function getSavedPendingGrazingEventOrder(PlanInterface $plan, int $asset_id, array $rows): array {
-
-    // Get the saved grazing events for the asset, sorted chronologically.
-    $grazing_events = $this->grazingPlan->getGrazingEventsByAsset($plan)[$asset_id] ?? [];
-
-    // Get the pending grazing events, in chronological order.
-    $saved_order = [];
-    foreach ($grazing_events as $grazing_event_id => $grazing_event) {
-      if ($grazing_event->getLog()->get('status')->value !== 'done') {
-        $saved_order[] = $grazing_event_id;
-      }
-    }
-
-    // Append the new rows, in row number order.
-    $new_row_keys = array_filter(array_keys($rows), 'is_string');
-    usort($new_row_keys, function ($a, $b) {
-      return ((int) substr($a, 4)) <=> ((int) substr($b, 4));
-    });
-
-    return array_merge($saved_order, $new_row_keys);
   }
 
   /**

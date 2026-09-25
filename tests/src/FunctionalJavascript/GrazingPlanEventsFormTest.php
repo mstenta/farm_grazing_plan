@@ -71,7 +71,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     // Get the plan's grazing events grouped by asset.
     $grazing_events_by_asset = \Drupal::service('farm_grazing_plan')->getGrazingEventsByAsset($this->plan);
 
-    // Confirm the expected fields are visible for each asset and each of its
+    // Confirm the expected fields are present for each asset and each of its
     // grazing events.
     foreach ($grazing_events_by_asset as $asset_id => $grazing_events) {
       foreach ($grazing_events as $grazing_event_id => $grazing_event) {
@@ -81,7 +81,6 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
         }
         $prefix = 'grazing_events[' . $asset_id . '][' . $status . '][' . $grazing_event_id . ']';
         $this->assertSession()->fieldExists($prefix . '[location]');
-        $this->assertSession()->fieldExists($prefix . '[planned_start]');
         $this->assertSession()->fieldExists($prefix . '[planned_duration]');
         $this->assertSession()->fieldExists($prefix . '[planned_recovery]');
       }
@@ -105,8 +104,9 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
       }
     }
 
-    // Reverse the order of locations, shift the planned/actual starts ahead
-    // 25 hours, and double the planned duration and recovery times.
+    // Reverse the order of locations and double the planned duration and
+    // recovery times. The pending starts are not editable, so they are left
+    // as is and recomputed on submit.
     foreach ($grazing_events_by_asset as $asset_id => $grazing_events) {
 
       // Click the vertical tab.
@@ -125,9 +125,6 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
         // Reverse the order of locations.
         $location = $events[count($events) - 1 - $index]->getLog()->get('location')->referencedEntities()[0];
         $this->getSession()->getPage()->fillField($prefix . '[location]', $location->label() . ' (' . $location->id() . ')');
-
-        // Shift the pending starts ahead 25 hours.
-        $this->getSession()->getPage()->fillField($prefix . '[planned_start]', (string) ($grazing_event->get('start')->value + 25 * 60 * 60));
 
         // Double the planned duration and recovery times.
         $this->getSession()->getPage()->fillField($prefix . '[planned_duration]', (string) ($grazing_event->get('duration')->value * 2));
@@ -157,16 +154,19 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
           continue;
         }
 
-        // The grazing event should have the shifted start and the doubled
-        // duration and recovery.
+        // The pending start dates are not editable, so they are recomputed on
+        // submit. Each asset's first pending event is anchored to the end of
+        // its last completed event, which for this test data matches the
+        // original start date. The duration and recovery are doubled.
         $updated_grazing_event = $plan_record_storage->load($grazing_event->id());
-        $this->assertEquals($original[$grazing_event->id()]['start'] + 25 * 60 * 60, $updated_grazing_event->get('start')->value);
+        $this->assertEquals($original[$grazing_event->id()]['start'], $updated_grazing_event->get('start')->value);
         $this->assertEquals($original[$grazing_event->id()]['duration'] * 2, $updated_grazing_event->get('duration')->value);
         $this->assertEquals($original[$grazing_event->id()]['recovery'] * 2, $updated_grazing_event->get('recovery')->value);
 
-        // The log should have the shifted timestamp and the reversed location.
+        // The log should have the original timestamp and the reversed
+        // location.
         $log = $log_storage->load($grazing_event->get('log')->target_id);
-        $this->assertEquals($original[$grazing_event->id()]['timestamp'] + 25 * 60 * 60, $log->get('timestamp')->value);
+        $this->assertEquals($original[$grazing_event->id()]['timestamp'], $log->get('timestamp')->value);
         $this->assertEquals($original[$grazing_event->id()]['location'], $log->get('location')->target_id);
       }
     }
@@ -205,7 +205,6 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
 
     // Confirm the new row is rendered with the expected pre-filled values.
     $this->assertSession()->fieldValueEquals($prefix . '[location]', '');
-    $this->assertSession()->fieldValueEquals($prefix . '[planned_start]', (string) $expected_start);
     $this->assertSession()->fieldValueEquals($prefix . '[planned_duration]', (string) $expected_duration);
     $this->assertSession()->fieldValueEquals($prefix . '[planned_recovery]', (string) $expected_recovery);
 
