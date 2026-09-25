@@ -132,7 +132,7 @@ class GrazingPlanEventsForm extends FormBase {
       // Add a submit button to each asset's grazing events.
       $form['grazing_events'][$asset_id]['submit'] = [
         '#type' => 'submit',
-        '#value' => $this->t('Update grazing events'),
+        '#value' => $this->t('Save events'),
       ];
     }
 
