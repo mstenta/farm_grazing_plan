@@ -238,8 +238,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $this->assertEquals($first_asset_id, $log->get('asset')->target_id);
     $this->assertEquals($location->id(), $log->get('location')->target_id);
     $this->assertTrue((bool) $log->get('is_movement')->value);
-    $expected_status = $expected_start <= time() ? 'done' : 'pending';
-    $this->assertEquals($expected_status, $log->get('status')->value);
+    $this->assertEquals('pending', $log->get('status')->value);
 
     // Confirm that a new grazing event plan record was created with the
     // expected values.
