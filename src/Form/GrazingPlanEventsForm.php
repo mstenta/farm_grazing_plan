@@ -88,8 +88,8 @@ class GrazingPlanEventsForm extends FormBase {
       }
 
       // Create two tables for done and pending grazing events.
-      $done_table = $this->buildGrazingEventTable($done_events, $this->t('Completed events'));
-      $pending_table = $this->buildGrazingEventTable($pending_events, $this->t('Pending events'));
+      $done_table = $this->buildGrazingEventTable('done', $done_events);
+      $pending_table = $this->buildGrazingEventTable('pending', $pending_events);
 
       // Wrap the pending table in a div, so it can be replaced via Ajax.
       $pending_table['#prefix'] = '<div id="pending-grazing-events-wrapper-' . $asset_id . '">';
@@ -100,7 +100,7 @@ class GrazingPlanEventsForm extends FormBase {
       for ($row_num = 1; $row_num <= $num_new_rows; $row_num++) {
         $row_key = 'new_' . $row_num;
         $defaults = $this->getNewGrazingEventRowDefaults($asset_id, $row_num, $grazing_events, $form_state);
-        $pending_table[$row_key] = $this->buildGrazingEventRowFields($defaults);
+        $pending_table[$row_key] = $this->buildGrazingEventRowFields('pending', $defaults);
       }
 
       // Add the tables to a collapsed details box for this asset.
@@ -157,15 +157,24 @@ class GrazingPlanEventsForm extends FormBase {
   /**
    * Build a table of grazing events.
    *
+   * @param string $status
+   *   The status of the grazing events (done/pending).
    * @param \Drupal\farm_grazing_plan\Bundle\GrazingEvent[] $grazing_events
    *   The grazing events to include in the table.
-   * @param string|\Drupal\Core\StringTranslation\TranslatableMarkup $caption
-   *   The table caption.
    *
    * @return array
    *   Returns a render array of the table, with one row per grazing event.
    */
-  protected function buildGrazingEventTable(array $grazing_events, $caption): array {
+  protected function buildGrazingEventTable(string $status, array $grazing_events): array {
+
+    // Set the caption based on the status.
+    $caption = '';
+    if ($status == 'done') {
+      $caption = $this->t('Completed events');
+    }
+    elseif ($status == 'pending') {
+      $caption = $this->t('Pending events');
+    }
 
     // Initialize the table with a caption and column headers.
     $table = [
@@ -195,7 +204,7 @@ class GrazingPlanEventsForm extends FormBase {
         'planned_duration' => $grazing_event->get('duration')->value,
         'planned_recovery' => $grazing_event->get('recovery')->value,
       ];
-      $table[$grazing_event_id] = $this->buildGrazingEventRowFields($defaults);
+      $table[$grazing_event_id] = $this->buildGrazingEventRowFields($status, $defaults);
     }
 
     return $table;
@@ -204,6 +213,8 @@ class GrazingPlanEventsForm extends FormBase {
   /**
    * Build form fields for a grazing event row.
    *
+   * @param string $status
+   *   The status of the grazing events (done/pending).
    * @param array $defaults
    *   The default row values, with keys: location, planned_start,
    *   actual_start, planned_duration, planned_recovery.
@@ -211,70 +222,111 @@ class GrazingPlanEventsForm extends FormBase {
    * @return array
    *   Returns a render array of the row's form fields.
    */
-  protected function buildGrazingEventRowFields(array $defaults = []) {
+  protected function buildGrazingEventRowFields(string $status, array $defaults = []) {
+    $fields = [];
 
-    // Location.
-    $fields['location'] = [
-      '#type' => 'entity_autocomplete',
-      '#title' => $this->t('Location'),
-      '#title_display' => 'hidden',
-      '#target_type' => 'asset',
-      '#selection_handler' => 'views',
-      '#selection_settings' => [
-        'view' => [
-          'view_name' => 'farm_location_reference',
-          'display_name' => 'entity_reference',
-          'arguments' => [],
+    // Grazing events that are done cannot be edited.
+    if ($status == 'done') {
+
+      // Location.
+      /** @var \Drupal\asset\Entity\AssetInterface $location */
+      $location = $defaults['location'];
+      $fields['location'] = [
+        '#type' => 'markup',
+        '#markup' => $location->toLink()->toString(),
+      ];
+
+      // Planned start.
+      $fields['planned_start'] = [
+        '#type' => 'markup',
+        '#markup' => date('Y-m-d H:i:s', (int) $defaults['planned_start']),
+      ];
+
+      // Actual start.
+      $fields['actual_start'] = [
+        '#type' => 'markup',
+        '#markup' => date('Y-m-d H:i:s', (int) $defaults['actual_start']),
+      ];
+
+      // Planned duration.
+      $fields['planned_duration'] = [
+        '#type' => 'markup',
+        '#markup' => $this->t('@duration hours', ['@duration' => $defaults['planned_duration']]),
+      ];
+
+      // Planned recovery.
+      $fields['planned_recovery'] = [
+        '#type' => 'markup',
+        '#markup' => !empty($defaults['planned_recovery']) ? $this->t('@recovery hours', ['@recovery' => $defaults['planned_recovery']]) : '',
+      ];
+    }
+
+    // Grazing events that are pending can be edited.
+    elseif ($status == 'pending') {
+
+      // Location.
+      $fields['location'] = [
+        '#type' => 'entity_autocomplete',
+        '#title' => $this->t('Location'),
+        '#title_display' => 'hidden',
+        '#target_type' => 'asset',
+        '#selection_handler' => 'views',
+        '#selection_settings' => [
+          'view' => [
+            'view_name' => 'farm_location_reference',
+            'display_name' => 'entity_reference',
+            'arguments' => [],
+          ],
+          'match_operator' => 'CONTAINS',
         ],
-        'match_operator' => 'CONTAINS',
-      ],
-      '#maxlength' => 1024,
-      '#default_value' => $defaults['location'] ?? NULL,
-      '#required' => TRUE,
-    ];
+        '#maxlength' => 1024,
+        '#default_value' => $defaults['location'] ?? NULL,
+        '#required' => TRUE,
+      ];
 
-    // Planned start.
-    $fields['planned_start'] = [
-      '#type' => 'number',
-      '#title' => $this->t('Planned start'),
-      '#title_display' => 'hidden',
-      '#scale' => 1,
-      '#default_value' => $defaults['planned_start'] ?? NULL,
-      '#required' => TRUE,
-    ];
+      // Planned start.
+      $fields['planned_start'] = [
+        '#type' => 'number',
+        '#title' => $this->t('Planned start'),
+        '#title_display' => 'hidden',
+        '#scale' => 1,
+        '#default_value' => $defaults['planned_start'] ?? NULL,
+        '#required' => TRUE,
+      ];
 
-    // Actual start.
-    $fields['actual_start'] = [
-      '#type' => 'number',
-      '#title' => $this->t('Actual start'),
-      '#title_display' => 'hidden',
-      '#scale' => 1,
-      '#default_value' => $defaults['actual_start'] ?? NULL,
-      '#required' => TRUE,
-    ];
+      // Actual start.
+      $fields['actual_start'] = [
+        '#type' => 'number',
+        '#title' => $this->t('Actual start'),
+        '#title_display' => 'hidden',
+        '#scale' => 1,
+        '#default_value' => $defaults['actual_start'] ?? NULL,
+        '#required' => TRUE,
+      ];
 
-    // Planned duration.
-    $fields['planned_duration'] = [
-      '#type' => 'number',
-      '#title' => $this->t('Planned duration (hours)'),
-      '#title_display' => 'hidden',
-      '#min' => 1,
-      '#max' => 8760,
-      '#scale' => 1,
-      '#default_value' => $defaults['planned_duration'] ?? '',
-      '#required' => TRUE,
-    ];
+      // Planned duration.
+      $fields['planned_duration'] = [
+        '#type' => 'number',
+        '#title' => $this->t('Planned duration (hours)'),
+        '#title_display' => 'hidden',
+        '#min' => 1,
+        '#max' => 8760,
+        '#scale' => 1,
+        '#default_value' => $defaults['planned_duration'] ?? '',
+        '#required' => TRUE,
+      ];
 
-    // Planned recovery.
-    $fields['planned_recovery'] = [
-      '#type' => 'number',
-      '#title' => $this->t('Planned recovery (hours)'),
-      '#title_display' => 'hidden',
-      '#min' => 1,
-      '#max' => 8760,
-      '#scale' => 1,
-      '#default_value' => $defaults['planned_recovery'] ?? '',
-    ];
+      // Planned recovery.
+      $fields['planned_recovery'] = [
+        '#type' => 'number',
+        '#title' => $this->t('Planned recovery (hours)'),
+        '#title_display' => 'hidden',
+        '#min' => 1,
+        '#max' => 8760,
+        '#scale' => 1,
+        '#default_value' => $defaults['planned_recovery'] ?? '',
+      ];
+    }
 
     return $fields;
   }
