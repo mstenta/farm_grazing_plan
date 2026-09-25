@@ -76,53 +76,29 @@ class GrazingPlanEventsForm extends FormBase {
         continue;
       }
 
-      // Create a table for this asset in a collapsed details box.
-      $form['grazing_events'][$asset_id] = [
-        '#type' => 'details',
-        '#title' => $this->t('@asset Grazing Events', ['@asset' => $asset->label()]),
-        '#open' => FALSE,
-        '#group' => 'tabs',
-      ];
-      $form['grazing_events'][$asset_id]['values'] = [
-        '#type' => 'table',
-        '#header' => [
-          $this->t('Location'),
-          $this->t('Planned start'),
-          $this->t('Actual start'),
-          $this->t('Planned duration (hours)'),
-          $this->t('Planned recovery (hours)'),
-        ],
+      // Create a table of this asset's grazing events.
+      $table = $this->buildGrazingEventTable($grazing_events);
 
-        // Wrap the table in a div, so it can be replaced via Ajax.
-        '#prefix' => '<div id="grazing-events-wrapper-' . $asset_id . '">',
-        '#suffix' => '</div>',
-      ];
-
-      // Iterate through the grazing events for this asset.
-      foreach ($grazing_events as $grazing_event_id => $grazing_event) {
-
-        // Load the log.
-        $log = $grazing_event->get('log')->referencedEntities()[0];
-
-        // Build the grazing event fields with default values from the grazing
-        // event and log.
-        $defaults = [
-          'location' => $log->get('location')->referencedEntities()[0],
-          'planned_start' => $grazing_event->get('start')->value,
-          'actual_start' => $log->get('timestamp')->value,
-          'planned_duration' => $grazing_event->get('duration')->value,
-          'planned_recovery' => $grazing_event->get('recovery')->value,
-        ];
-        $form['grazing_events'][$asset_id]['values'][$grazing_event_id] = $this->buildGrazingEventRowFields($defaults);
-      }
+      // Wrap the table in a div, so it can be replaced via Ajax.
+      $table['#prefix'] = '<div id="grazing-events-wrapper-' . $asset_id . '">';
+      $table['#suffix'] = '</div>';
 
       // Add the new grazing event rows, if any were added via Ajax.
       $num_new_rows = $new_rows_by_asset[$asset_id] ?? 0;
       for ($row_num = 1; $row_num <= $num_new_rows; $row_num++) {
         $row_key = 'new_' . $row_num;
         $defaults = $this->getNewGrazingEventRowDefaults($asset_id, $row_num, $grazing_events, $form_state);
-        $form['grazing_events'][$asset_id]['values'][$row_key] = $this->buildGrazingEventRowFields($defaults);
+        $table[$row_key] = $this->buildGrazingEventRowFields($defaults);
       }
+
+      // Add the table to a collapsed details box for this asset.
+      $form['grazing_events'][$asset_id] = [
+        '#type' => 'details',
+        '#title' => $this->t('@asset Grazing Events', ['@asset' => $asset->label()]),
+        '#open' => FALSE,
+        '#group' => 'tabs',
+      ];
+      $form['grazing_events'][$asset_id]['values'] = $table;
 
       // Add a button to add a new grazing event row via Ajax.
       $form['grazing_events'][$asset_id]['add'] = [
@@ -159,6 +135,50 @@ class GrazingPlanEventsForm extends FormBase {
     ];
 
     return $form;
+  }
+
+  /**
+   * Build a table of grazing events.
+   *
+   * @param \Drupal\farm_grazing_plan\Bundle\GrazingEvent[] $grazing_events
+   *   The grazing events to include in the table.
+   *
+   * @return array
+   *   Returns a render array of the table, with one row per grazing event.
+   */
+  protected function buildGrazingEventTable(array $grazing_events): array {
+
+    // Initialize the table with column headers.
+    $table = [
+      '#type' => 'table',
+      '#header' => [
+        $this->t('Location'),
+        $this->t('Planned start'),
+        $this->t('Actual start'),
+        $this->t('Planned duration (hours)'),
+        $this->t('Planned recovery (hours)'),
+      ],
+    ];
+
+    // Iterate through the grazing events for this asset.
+    foreach ($grazing_events as $grazing_event_id => $grazing_event) {
+
+      // Load the log.
+      $log = $grazing_event->getLog();
+
+      // Build the grazing event fields with default values from the grazing
+      // event and log.
+      $defaults = [
+        'location' => $log->get('location')->referencedEntities()[0],
+        'planned_start' => $grazing_event->get('start')->value,
+        'actual_start' => $log->get('timestamp')->value,
+        'planned_duration' => $grazing_event->get('duration')->value,
+        'planned_recovery' => $grazing_event->get('recovery')->value,
+      ];
+      $table[$grazing_event_id] = $this->buildGrazingEventRowFields($defaults);
+    }
+
+    return $table;
   }
 
   /**
