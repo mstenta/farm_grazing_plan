@@ -76,29 +76,43 @@ class GrazingPlanEventsForm extends FormBase {
         continue;
       }
 
-      // Create a table of this asset's grazing events.
-      $table = $this->buildGrazingEventTable($grazing_events);
+      // Separate the grazing events by their log status.
+      $done_events = [];
+      $pending_events = [];
+      foreach ($grazing_events as $grazing_event_id => $grazing_event) {
+        if ($grazing_event->getLog()->get('status')->value === 'done') {
+          $done_events[$grazing_event_id] = $grazing_event;
+        }
+        else {
+          $pending_events[$grazing_event_id] = $grazing_event;
+        }
+      }
 
-      // Wrap the table in a div, so it can be replaced via Ajax.
-      $table['#prefix'] = '<div id="grazing-events-wrapper-' . $asset_id . '">';
-      $table['#suffix'] = '</div>';
+      // Create two tables for done and pending grazing events.
+      $done_table = $this->buildGrazingEventTable($done_events);
+      $pending_table = $this->buildGrazingEventTable($pending_events);
 
-      // Add the new grazing event rows, if any were added via Ajax.
+      // Wrap the pending table in a div, so it can be replaced via Ajax.
+      $pending_table['#prefix'] = '<div id="pending-grazing-events-wrapper-' . $asset_id . '">';
+      $pending_table['#suffix'] = '</div>';
+
+      // Add new grazing event rows, if any were added via Ajax.
       $num_new_rows = $new_rows_by_asset[$asset_id] ?? 0;
       for ($row_num = 1; $row_num <= $num_new_rows; $row_num++) {
         $row_key = 'new_' . $row_num;
         $defaults = $this->getNewGrazingEventRowDefaults($asset_id, $row_num, $grazing_events, $form_state);
-        $table[$row_key] = $this->buildGrazingEventRowFields($defaults);
+        $pending_table[$row_key] = $this->buildGrazingEventRowFields($defaults);
       }
 
-      // Add the table to a collapsed details box for this asset.
+      // Add the tables to a collapsed details box for this asset.
       $form['grazing_events'][$asset_id] = [
         '#type' => 'details',
         '#title' => $this->t('@asset Grazing Events', ['@asset' => $asset->label()]),
         '#open' => FALSE,
         '#group' => 'tabs',
       ];
-      $form['grazing_events'][$asset_id]['values'] = $table;
+      $form['grazing_events'][$asset_id]['done'] = $done_table;
+      $form['grazing_events'][$asset_id]['pending'] = $pending_table;
 
       // Add a button to add a new grazing event row via Ajax.
       $form['grazing_events'][$asset_id]['add'] = [
@@ -108,7 +122,7 @@ class GrazingPlanEventsForm extends FormBase {
         '#submit' => [[$this, 'addGrazingEventRow']],
         '#ajax' => [
           'callback' => [$this, 'addGrazingEventRowAjaxCallback'],
-          'wrapper' => 'grazing-events-wrapper-' . $asset_id,
+          'wrapper' => 'pending-grazing-events-wrapper-' . $asset_id,
         ],
       ];
 
@@ -289,7 +303,7 @@ class GrazingPlanEventsForm extends FormBase {
    */
   public function addGrazingEventRowAjaxCallback(array $form, FormStateInterface $form_state) {
     $asset_id = $form_state->getTriggeringElement()['#parents'][1];
-    return $form['grazing_events'][$asset_id]['values'];
+    return $form['grazing_events'][$asset_id]['pending'];
   }
 
   /**
@@ -334,7 +348,7 @@ class GrazingPlanEventsForm extends FormBase {
     // Build the default values for subsequent new rows from the previous new
     // row's values.
     else {
-      $previous = $form_state->getValue(['grazing_events', $asset_id, 'values', 'new_' . ($row_num - 1)]);
+      $previous = $form_state->getValue(['grazing_events', $asset_id, 'pending', 'new_' . ($row_num - 1)]);
       $values['planned_start'] = $values['actual_start'] = $previous['actual_start'];
       $values['planned_duration'] = $previous['planned_duration'] ?? NULL;
       $values['planned_recovery'] = $previous['planned_recovery'] ?? NULL;
@@ -357,17 +371,19 @@ class GrazingPlanEventsForm extends FormBase {
     // Iterate through the submitted grazing events for each asset.
     $grazing_event_values_by_asset = $form_state->getValue('grazing_events');
     foreach ($grazing_event_values_by_asset as $asset_id => $grazing_events) {
-      foreach ($grazing_events['values'] as $row_key => $values) {
+      foreach (['done', 'pending'] as $table) {
+        foreach ($grazing_events[$table] as $row_key => $values) {
 
-        // If the row key is numeric, update the grazing event and log with
-        // submitted values.
-        if (is_numeric($row_key)) {
-          $this->updateGrazingEvent($row_key, $values);
-        }
+          // If the row key is numeric, update the grazing event and log with
+          // submitted values.
+          if (is_numeric($row_key)) {
+            $this->updateGrazingEvent($row_key, $values);
+          }
 
-        // Otherwise, create a new grazing event and log.
-        else {
-          $this->createGrazingEvent((int) $form_state->get('plan_id'), $asset_id, $values);
+          // Otherwise, create a new grazing event and log.
+          else {
+            $this->createGrazingEvent((int) $form_state->get('plan_id'), $asset_id, $values);
+          }
         }
       }
     }
