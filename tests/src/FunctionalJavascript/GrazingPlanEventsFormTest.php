@@ -50,7 +50,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $this->assertSession()->pageTextContains('Grazing events (by Asset)');
 
     // Confirm that the grazing plan form is inaccessible.
-    $this->assertSession()->pageTextNotContains('Sheep 1 Grazing Events');
+    $this->assertSession()->buttonNotExists('Save events');
 
     // Create and log in a user with access to update grazing plans.
     $permissions[] = 'update any grazing plan';
@@ -66,7 +66,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
 
     // Load the grazing plan and confirm the user has access to the form.
     $this->drupalGet('/plan/' . $this->plan->id());
-    $this->assertSession()->pageTextContains('Sheep 1 Grazing Events');
+    $this->assertSession()->buttonExists('Save events');
 
     // Get the plan's grazing events grouped by asset.
     $grazing_events_by_asset = \Drupal::service('farm_grazing_plan')->getGrazingEventsByAsset($this->plan);
@@ -114,8 +114,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     foreach ($grazing_events_by_asset as $asset_id => $grazing_events) {
 
       // Click the vertical tab.
-      $asset = \Drupal::entityTypeManager()->getStorage('asset')->load($asset_id);
-      $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
+      $this->clickGrazingEventsTab($asset_id);
 
       // Iterate through the grazing event rows.
       foreach ($grazing_events as $grazing_event) {
@@ -133,8 +132,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     }
 
     // Click on the first asset's vertical tab and press the submit button.
-    $asset = \Drupal::entityTypeManager()->getStorage('asset')->load(array_key_first($grazing_events_by_asset));
-    $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
+    $this->clickGrazingEventsTab(array_key_first($grazing_events_by_asset));
     $this->getSession()->getPage()->pressButton('Save events');
 
     // Confirm that the status message is shown.
@@ -192,9 +190,9 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $expected_duration = $last_grazing_event->get('duration')->value;
     $expected_recovery = $last_grazing_event->get('recovery')->value;
 
-    // Click the "Add event" button in the first tab (by name, since
-    // there is one per asset).
-    $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
+    // Open the first asset's vertical tab. The "Add event" button is found by
+    // name, since there is one per asset.
+    $this->clickGrazingEventsTab($first_asset_id);
     $button = $this->getSession()->getPage()->find('xpath', "//input[@name='add_grazing_event_{$first_asset_id}']");
     $this->assertNotNull($button);
     $button->press();
@@ -288,8 +286,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $anchor_start = $last_done->getLog()->get('timestamp')->value + $last_done->get('duration')->value * 60 * 60;
 
     // Open the first asset's vertical tab.
-    $asset = \Drupal::entityTypeManager()->getStorage('asset')->load($first_asset_id);
-    $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
+    $this->clickGrazingEventsTab($first_asset_id);
 
     // Drag the last pending row onto the first pending row, so the pending
     // grazing events are reordered.
@@ -324,6 +321,18 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $this->assertEquals($anchor_start, $log->get('timestamp')->value);
     $updated_first_pending = $plan_record_storage->load($first_pending->id());
     $this->assertEquals($anchor_start + $last_pending->get('duration')->value * 60 * 60, $updated_first_pending->get('start')->value);
+  }
+
+  /**
+   * Click the vertical tab for an asset's grazing events.
+   *
+   * The tab link is identified by its href, which is the ID of the asset's
+   * details element.
+   */
+  protected function clickGrazingEventsTab(int $asset_id): void {
+    $tab = $this->getSession()->getPage()->find('xpath', "//a[@href='#edit-grazing-events-{$asset_id}']");
+    $this->assertNotNull($tab);
+    $tab->click();
   }
 
 }
