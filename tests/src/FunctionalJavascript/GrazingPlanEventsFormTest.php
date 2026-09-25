@@ -264,6 +264,63 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $this->assertEquals($expected_start, $plan_record->get('start')->value);
     $this->assertEquals($expected_duration, $plan_record->get('duration')->value);
     $this->assertEquals($expected_recovery, $plan_record->get('recovery')->value);
+
+    // Reload the page to test reordering the pending grazing events.
+    $this->drupalGet('/plan/' . $this->plan->id());
+
+    // Get the pending and done grazing events for the first asset. The first
+    // asset should now have two pending grazing events: the original one and
+    // the one added above.
+    $grazing_events_by_asset = \Drupal::service('farm_grazing_plan')->getGrazingEventsByAsset($this->plan);
+    $grazing_events = $grazing_events_by_asset[$first_asset_id];
+    $pending_events = array_filter($grazing_events, fn ($event) => $event->getLog()->get('status')->value !== 'done');
+    $this->assertCount(2, $pending_events);
+    $first_pending = reset($pending_events);
+    $last_pending = end($pending_events);
+    $done_events = array_filter($grazing_events, fn ($event) => $event->getLog()->get('status')->value === 'done');
+    $last_done = end($done_events);
+
+    // The recomputed start dates will be anchored to the end of the last done
+    // grazing event.
+    $anchor_start = $last_done->getLog()->get('timestamp')->value + $last_done->get('duration')->value * 60 * 60;
+
+    // Open the first asset's vertical tab.
+    $asset = \Drupal::entityTypeManager()->getStorage('asset')->load($first_asset_id);
+    $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
+
+    // Drag the last pending row onto the first pending row, so the pending
+    // grazing events are reordered.
+    $rows = $this->getSession()->getPage()->findAll('css', '#edit-grazing-events-' . $first_asset_id . '-pending tr.draggable');
+    $this->assertCount(2, $rows);
+    $source_handle = $rows[1]->find('css', 'a.tabledrag-handle');
+    $target_handle = $rows[0]->find('css', 'a.tabledrag-handle');
+    $this->assertNotNull($source_handle);
+    $this->assertNotNull($target_handle);
+    $source_handle->dragTo($target_handle);
+
+    // Confirm that the weights were updated by the drag, so that the dragged
+    // row now comes first. For weight select fields, the tabledrag JavaScript
+    // assigns the select's option values in order, so only the relative
+    // order of the weights is asserted.
+    $weight_last_pending = $this->getSession()->getPage()->findField('grazing_events[' . $first_asset_id . '][pending][' . $last_pending->id() . '][weight]')->getValue();
+    $weight_first_pending = $this->getSession()->getPage()->findField('grazing_events[' . $first_asset_id . '][pending][' . $first_pending->id() . '][weight]')->getValue();
+    $this->assertLessThan($weight_first_pending, $weight_last_pending);
+
+    // Save the events.
+    $this->getSession()->getPage()->pressButton('Save events');
+    $this->assertTrue($this->assertSession()->waitForText('Updated the grazing events.', 30000));
+
+    // Confirm that the start dates of the pending grazing events and their
+    // logs were recomputed based on the new order. The first pending event
+    // starts at the anchor, and the second pending event starts at the end of
+    // the first pending event.
+    $this->drupalGet('/plan/' . $this->plan->id());
+    $updated_last_pending = $plan_record_storage->load($last_pending->id());
+    $this->assertEquals($anchor_start, $updated_last_pending->get('start')->value);
+    $log = $log_storage->load($updated_last_pending->get('log')->target_id);
+    $this->assertEquals($anchor_start, $log->get('timestamp')->value);
+    $updated_first_pending = $plan_record_storage->load($first_pending->id());
+    $this->assertEquals($anchor_start + $last_pending->get('duration')->value * 60 * 60, $updated_first_pending->get('start')->value);
   }
 
 }
