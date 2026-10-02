@@ -104,12 +104,12 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
     // GrazingEventLog violations.
     $valid_log = $this->createTestLog($timestamp, [$this->animalAssets[0]], [$this->landAssets[0]]);
     $record = $this->createGrazingEventRecord($valid_log);
-    $this->assertGrazingEventLogViolations($record, []);
+    $this->assertGrazingEventViolations($record, GrazingEventLog::class, []);
 
     // Create a non-movement log and confirm the violation.
     $non_movement_log = $this->createTestLog($timestamp, [$this->animalAssets[0]], [$this->landAssets[0]], FALSE);
     $record = $this->createGrazingEventRecord($non_movement_log);
-    $this->assertGrazingEventLogViolations($record, [
+    $this->assertGrazingEventViolations($record, GrazingEventLog::class, [
       'Only movement logs can be added to a grazing plan.',
     ]);
 
@@ -117,7 +117,7 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
     // associated with a new grazing event.
     $existing_log = reset($this->movementLogs);
     $record = $this->createGrazingEventRecord($existing_log);
-    $this->assertGrazingEventLogViolations($record, [
+    $this->assertGrazingEventViolations($record, GrazingEventLog::class, [
       'This log is already part of a grazing plan.',
     ]);
 
@@ -127,13 +127,13 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
       'type' => 'grazing_event',
     ]);
     $existing_record = reset($existing_records);
-    $this->assertGrazingEventLogViolations($existing_record, []);
+    $this->assertGrazingEventViolations($existing_record, GrazingEventLog::class, []);
 
     // Create a log that does not reference an asset and confirm the
     // violation.
     $no_asset_log = $this->createTestLog($timestamp, [], [$this->landAssets[0]]);
     $record = $this->createGrazingEventRecord($no_asset_log);
-    $this->assertGrazingEventLogViolations($record, [
+    $this->assertGrazingEventViolations($record, GrazingEventLog::class, [
       'This log does not reference an asset. A grazing event must move one asset.',
     ]);
 
@@ -144,7 +144,7 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
       $this->animalAssets[1],
     ], [$this->landAssets[0]]);
     $record = $this->createGrazingEventRecord($multi_asset_log);
-    $this->assertGrazingEventLogViolations($record, [
+    $this->assertGrazingEventViolations($record, GrazingEventLog::class, [
       'This log references multiple assets. A grazing event can only move one asset.',
     ]);
 
@@ -152,7 +152,7 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
     // violation.
     $no_location_log = $this->createTestLog($timestamp, [$this->animalAssets[0]]);
     $record = $this->createGrazingEventRecord($no_location_log);
-    $this->assertGrazingEventLogViolations($record, [
+    $this->assertGrazingEventViolations($record, GrazingEventLog::class, [
       'This log does not reference a location. A grazing event must move an asset to a location.',
     ]);
 
@@ -163,13 +163,13 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
       $this->landAssets[1],
     ]);
     $record = $this->createGrazingEventRecord($multi_location_log);
-    $this->assertGrazingEventLogViolations($record, [
+    $this->assertGrazingEventViolations($record, GrazingEventLog::class, [
       'This log references multiple locations. A grazing event can only move an asset to a single location.',
     ]);
 
     // Confirm that a non-existent log is flagged.
     $record = $this->createGrazingEventRecord();
-    $this->assertGrazingEventLogViolations($record, [
+    $this->assertGrazingEventViolations($record, GrazingEventLog::class, [
       'The referenced log does not exist.',
     ]);
 
@@ -179,7 +179,7 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
       'type' => 'test',
       'plan' => $this->plan->id(),
     ]);
-    $this->assertGrazingEventLogViolations($record, []);
+    $this->assertGrazingEventViolations($record, GrazingEventLog::class, []);
   }
 
   /**
@@ -232,17 +232,19 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
   }
 
   /**
-   * Assert the GrazingEventLog violations for a plan record.
+   * Assert constraint violations for a grazing event plan_record entity.
    *
    * @param \Drupal\plan\Entity\PlanRecordInterface $record
    *   The plan record to validate.
+   * @param string $expected_constraint
+   *   The expected constraint class name.
    * @param string[] $expected_messages
    *   The expected violation messages.
    */
-  protected function assertGrazingEventLogViolations(PlanRecordInterface $record, array $expected_messages): void {
+  protected function assertGrazingEventViolations(PlanRecordInterface $record, string $expected_constraint, array $expected_messages): void {
     $messages = [];
     foreach ($record->validate() as $violation) {
-      if ($violation->getConstraint() instanceof GrazingEventLog) {
+      if ($violation->getConstraint()::class === $expected_constraint) {
         $messages[] = $violation->getMessage();
       }
     }
