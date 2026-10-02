@@ -73,6 +73,44 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertSession()->fieldExists('duration');
     $this->assertSession()->fieldExists('recovery');
 
+    // Confirm that a new event cannot be added with a start before the last
+    // grazing event for the selected asset.
+    $early_timestamp = reset($this->grazingEvents)->get('start')->value + 60;
+    $asset = reset($this->animalAssets);
+    $location = reset($this->landAssets);
+    $this->submitForm([
+      'asset' => $asset->label() . ' (' . $asset->id() . ')',
+      'location' => $location->label() . ' (' . $location->id() . ')',
+      'start[date]' => date('Y-m-d', $early_timestamp),
+      'start[time]' => date('H:i:s', $early_timestamp),
+      'duration' => 7 * 24,
+      'recovery' => 15 * 24,
+    ], 'Save');
+    $this->assertSession()->pageTextContains('The planned start date/time is before the last existing grazing event for this asset in the plan. Grazing events can only be added to the end of the plan.');
+    $this->assertCount($expected_log_count, $log_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
+
+    // Confirm that an existing movement log with a timestamp before the last
+    // grazing event for the asset cannot be added to the plan.
+    $this->createMockGrazingEvent($early_timestamp, reset($this->animalAssets), reset($this->landAssets), FALSE);
+    $early_log = end($this->movementLogs);
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
+    $this->submitForm([
+      'existing_log' => TRUE,
+      'log' => $early_log->label() . ' (' . $early_log->id() . ')',
+      'start[date]' => date('Y-m-d', $this->nextGrazingEventTimestamp()),
+      'start[time]' => date('H:i:s', $this->nextGrazingEventTimestamp()),
+      'duration' => 7 * 24,
+      'recovery' => 15 * 24,
+    ], 'Save');
+    $this->assertSession()->pageTextContains('The movement log timestamp is before the last existing grazing event for this asset in the plan. Grazing events can only be added to the end of the plan.');
+    $expected_log_count++;
+    $this->assertCount($expected_log_count, $log_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
+
+    // Reload the form.
+    $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
+
     // Get a timestamp for the next grazing event.
     $timestamp = $this->nextGrazingEventTimestamp();
 
@@ -164,6 +202,9 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertEquals(7 * 24, $plan_record->get('duration')->value);
     $this->assertEquals(15 * 24, $plan_record->get('recovery')->value);
 
+    // Track the new grazing event for calculating future timestamps.
+    $this->grazingEvents[] = $plan_record;
+
     // Reload the form.
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
 
@@ -199,6 +240,9 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertEquals($timestamp, $plan_record->get('start')->value);
     $this->assertEquals(7 * 24, $plan_record->get('duration')->value);
     $this->assertEquals(15 * 24, $plan_record->get('recovery')->value);
+
+    // Track the new grazing event for calculating future timestamps.
+    $this->grazingEvents[] = $plan_record;
 
     // Submit the same log a second time and confirm the duplicate check works.
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');

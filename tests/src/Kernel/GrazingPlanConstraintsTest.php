@@ -6,8 +6,10 @@ namespace Drupal\Tests\farm_grazing_plan\Kernel;
 
 use Drupal\farm_grazing_plan\Plugin\Validation\Constraint\GrazingEventLog;
 use Drupal\farm_grazing_plan\Plugin\Validation\Constraint\GrazingEventLogRestrictedFields;
+use Drupal\farm_grazing_plan\Plugin\Validation\Constraint\GrazingEventOrder;
 use Drupal\log\Entity\Log;
 use Drupal\log\Entity\LogInterface;
+use Drupal\plan\Entity\Plan;
 use Drupal\plan\Entity\PlanRecord;
 use Drupal\plan\Entity\PlanRecordInterface;
 use PHPUnit\Framework\Attributes\Group;
@@ -183,6 +185,97 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
   }
 
   /**
+   * Test the GrazingEventOrder constraint on plan_record entities.
+   */
+  public function testGrazingEventOrderValidation() {
+
+    // Create mock plan entities.
+    $this->createMockPlanEntities();
+
+    // Get the last grazing events for each animal asset.
+    /** @var \Drupal\farm_grazing_plan\GrazingPlanInterface $grazing_plan */
+    $grazing_plan = \Drupal::service('farm_grazing_plan');
+    $first_animal = reset($this->animalAssets);
+    $second_animal = end($this->animalAssets);
+    $grazing_events = $grazing_plan->getGrazingEventsByAsset($this->plan);
+    $first_animal_last_event = end($grazing_events[$first_animal->id()]);
+    $second_animal_last_event = end($grazing_events[$second_animal->id()]);
+    $first_last_start = (int) $first_animal_last_event->get('start')->value;
+    $second_last_start = (int) $second_animal_last_event->get('start')->value;
+
+    // The mock events are created for the first animal, then the second, so
+    // the last event for the second animal is after the last event for the
+    // first animal.
+    $this->assertGreaterThan($first_last_start, $second_last_start);
+
+    // Confirm that a new event for the first animal with a start after its
+    // last event has no GrazingEventOrder violations.
+    $log = $this->createTestLog($first_last_start + (7 * 24 * 60 * 60), [$first_animal], [$this->landAssets[0]]);
+    $record = $this->createGrazingEventRecord($log, $log->get('timestamp')->value);
+    $this->assertGrazingEventViolations($record, GrazingEventOrder::class, []);
+
+    // Confirm that a new event for the first animal with a start before the
+    // second animal's last event (but after its own last event) has no
+    // violations, because events are ordered per asset.
+    $log = $this->createTestLog($first_last_start + 60, [$first_animal], [$this->landAssets[0]]);
+    $record = $this->createGrazingEventRecord($log, $log->get('timestamp')->value);
+    $this->assertGrazingEventViolations($record, GrazingEventOrder::class, []);
+
+    // Confirm that a new event with a start equal to the last event start has
+    // no violations.
+    $log = $this->createTestLog($first_last_start, [$first_animal], [$this->landAssets[0]]);
+    $record = $this->createGrazingEventRecord($log, $log->get('timestamp')->value);
+    $this->assertGrazingEventViolations($record, GrazingEventOrder::class, []);
+
+    // Confirm that a new event with a start before the last event start has a
+    // violation, and that it targets the start field.
+    $log = $this->createTestLog($first_last_start + (7 * 24 * 60 * 60), [$first_animal], [$this->landAssets[0]]);
+    $record = $this->createGrazingEventRecord($log, $first_last_start - 60);
+    $this->assertGrazingEventViolations($record, GrazingEventOrder::class, [
+      'The planned start date/time is before the last existing grazing event for this asset in the plan. Grazing events can only be added to the end of the plan.',
+    ]);
+
+    // Confirm that a new event with a log timestamp before the last event
+    // start (but a valid planned start) has a violation targeting the log.
+    $log = $this->createTestLog($first_last_start - 60, [$first_animal], [$this->landAssets[0]]);
+    $record = $this->createGrazingEventRecord($log, $first_last_start + (7 * 24 * 60 * 60));
+    $this->assertGrazingEventViolations($record, GrazingEventOrder::class, [
+      'The movement log timestamp is before the last existing grazing event for this asset in the plan. Grazing events can only be added to the end of the plan.',
+    ]);
+
+    // Confirm that a new event with both an early start and an early log
+    // timestamp has both violations.
+    $log = $this->createTestLog($first_last_start - 60, [$first_animal], [$this->landAssets[0]]);
+    $record = $this->createGrazingEventRecord($log, $first_last_start - 60);
+    $this->assertGrazingEventViolations($record, GrazingEventOrder::class, [
+      'The planned start date/time is before the last existing grazing event for this asset in the plan. Grazing events can only be added to the end of the plan.',
+      'The movement log timestamp is before the last existing grazing event for this asset in the plan. Grazing events can only be added to the end of the plan.',
+    ]);
+
+    // Confirm that an existing grazing event is not flagged for an early
+    // start, because only new events are validated.
+    $existing_records = \Drupal::entityTypeManager()->getStorage('plan_record')->loadByProperties([
+      'type' => 'grazing_event',
+    ]);
+    $existing_record = reset($existing_records);
+    $existing_record->set('start', $first_last_start - 60);
+    $this->assertGrazingEventViolations($existing_record, GrazingEventOrder::class, []);
+
+    // Confirm that events are only compared within the same plan, by creating
+    // a new plan without grazing events and adding a very early event to it.
+    $plan2 = Plan::create([
+      'name' => $this->randomMachineName(),
+      'type' => 'grazing',
+    ]);
+    $plan2->save();
+    $timestamp = $first_last_start - (365 * 24 * 60 * 60);
+    $log = $this->createTestLog($timestamp, [$first_animal], [$this->landAssets[0]]);
+    $record = $this->createGrazingEventRecord($log, $timestamp);
+    $record->set('plan', $plan2);
+    $this->assertGrazingEventViolations($record, GrazingEventOrder::class, []);
+  }
+
+  /**
    * Create a test log.
    *
    * @param int $timestamp
@@ -228,7 +321,7 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
       'type' => 'grazing_event',
       'plan' => $this->plan->id(),
       'log' => $log,
-      'start' => !is_null($start)? $start : \Drupal::time()->getRequestTime(),
+      'start' => !is_null($start) ? $start : \Drupal::time()->getRequestTime(),
       'duration' => 7 * 24,
     ]);
   }

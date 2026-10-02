@@ -28,6 +28,10 @@ class EntityHooks {
     // associated with a grazing event.
     if (isset($entity_types['plan_record'])) {
       $entity_types['plan_record']->addConstraint('GrazingEventLog');
+
+      // Add a constraint to ensure new grazing events are added in
+      // chronological order, after the last event for their asset.
+      $entity_types['plan_record']->addConstraint('GrazingEventOrder');
     }
   }
 

@@ -10,6 +10,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
+use Drupal\farm_grazing_plan\GrazingPlanInterface;
 use Drupal\log\Entity\Log;
 use Drupal\log\Entity\LogInterface;
 use Drupal\plan\Entity\PlanInterface;
@@ -24,6 +25,7 @@ class GrazingPlanAddEventForm extends FormBase {
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
     protected ModuleHandlerInterface $moduleHandler,
+    protected GrazingPlanInterface $grazingPlan,
   ) {}
 
   /**
@@ -290,6 +292,46 @@ class GrazingPlanAddEventForm extends FormBase {
       // Suggest the Group asset type for logs that reference multiple assets.
       if ($log instanceof LogInterface && count($log->get('asset')) > 1) {
         $this->messenger()->addStatus($this->t('Tip: The Group asset type can be used to group multiple animal assets together into a single entity, and track their membership in/out of the group. This is useful for representing herds/flocks of individual animals.'));
+      }
+    }
+
+    // Otherwise, we are creating a new movement log. Ensure that the event's
+    // start date/time is after the last grazing event for the selected asset.
+    // We need to replicate the validation logic in GrazingEventOrderValidator,
+    // rather than run $grazing_event->validate(), because that requires a log
+    // to be saved first, so that the plan_record that references it can be
+    // validated against the asset that it references. We don't have a log yet,
+    // because we are going to create a new one after validation.
+    else {
+
+      // Load the plan. Bail if null.
+      /** @var \Drupal\plan\Entity\PlanInterface|null $plan */
+      $plan = $this->entityTypeManager->getStorage('plan')->load($form_state->get('plan_id'));
+      if (is_null($plan)) {
+        return;
+      }
+
+      // Load the asset. Bail if null.
+      /** @var \Drupal\asset\Entity\AssetInterface|null $asset */
+      $asset = $this->entityTypeManager->getStorage('asset')->load($form_state->getValue('asset'));
+      if (is_null($asset)) {
+        return;
+      }
+
+      // Get the last grazing event for this asset in the plan.
+      $grazing_events = $this->grazingPlan->getGrazingEventsByAsset($plan);
+      if (empty($grazing_events[$asset->id()])) {
+        return;
+      }
+      $last_event = end($grazing_events[$asset->id()]);
+
+      // If the submitted start time is before the last event's start, throw a
+      // validation error.
+      /** @var \Drupal\Core\Datetime\DrupalDateTime $start */
+      $start = $form_state->getValue('start');
+      $last_start = (int) $last_event->get('start')->value;
+      if ($start->getTimestamp() < $last_start) {
+        $form_state->setErrorByName('details][start', $this->t('The planned start date/time is before the last existing grazing event for this asset in the plan. Grazing events can only be added to the end of the plan.'));
       }
     }
   }

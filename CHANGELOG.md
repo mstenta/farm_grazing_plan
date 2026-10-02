@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move add event form's movement log validation logic into an entity constraint
   so that it is checked in more places (eg: API requests).
 - Hide assets that the user doesn't have access to from the timeline.
+- Prevent new grazing events and movement logs from being added before the
+  last existing grazing event for the same asset in the plan, ensuring that
+  events are always added to the end of the plan in chronological order.
 
 ### Removed
 
