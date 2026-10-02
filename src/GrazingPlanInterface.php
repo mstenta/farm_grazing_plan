@@ -42,7 +42,7 @@ interface GrazingPlanInterface {
    *
    * @return array
    *   Returns arrays of plan_record entities of type grazing_event, indexed by
-   *    location asset ID.
+   *   location asset ID.
    */
   public function getGrazingEventsByLocation(PlanInterface $plan): array;
 
