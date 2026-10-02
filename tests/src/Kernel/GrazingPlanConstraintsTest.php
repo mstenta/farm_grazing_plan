@@ -217,16 +217,18 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
    *
    * @param \Drupal\log\Entity\LogInterface $log
    *   The log entity to reference, or NULL.
+   * @param int|null $start
+   *   The start timestamp. Defaults to now.
    *
    * @return \Drupal\plan\Entity\PlanRecordInterface
    *   Returns the plan record.
    */
-  protected function createGrazingEventRecord(?LogInterface $log = NULL): PlanRecordInterface {
+  protected function createGrazingEventRecord(?LogInterface $log = NULL, ?int $start = NULL): PlanRecordInterface {
     return PlanRecord::create([
       'type' => 'grazing_event',
       'plan' => $this->plan->id(),
       'log' => $log,
-      'start' => \Drupal::time()->getRequestTime(),
+      'start' => !is_null($start)? $start : \Drupal::time()->getRequestTime(),
       'duration' => 7 * 24,
     ]);
   }
