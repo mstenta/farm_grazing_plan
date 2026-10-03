@@ -132,9 +132,10 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
         $location = $events[count($events) - 1 - $index]->getLog()->get('location')->referencedEntities()[0];
         $this->getSession()->getPage()->fillField($prefix . '[location]', $location->label() . ' (' . $location->id() . ')');
 
-        // Double the planned duration and recovery times.
-        $this->getSession()->getPage()->fillField($prefix . '[planned_duration]', (string) ($grazing_event->get('duration')->value * 2));
-        $this->getSession()->getPage()->fillField($prefix . '[planned_recovery]', (string) ($grazing_event->get('recovery')->value * 2));
+        // Double the planned duration and recovery times. The form fields
+        // use days, so convert the entity values (in hours) to days.
+        $this->getSession()->getPage()->fillField($prefix . '[planned_duration]', (string) ($grazing_event->get('duration')->value / 24 * 2));
+        $this->getSession()->getPage()->fillField($prefix . '[planned_recovery]', (string) ($grazing_event->get('recovery')->value / 24 * 2));
       }
     }
 
@@ -193,7 +194,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     // The new row should be pre-filled based on the most recent grazing event:
     // the pending start defaults to the most recent log timestamp plus the
     // duration, and the duration and recovery default to the most recent
-    // grazing event's values.
+    // grazing event's values, converted from hours to days.
     $expected_start = $last_grazing_event->getLog()->get('timestamp')->value + $last_grazing_event->get('duration')->value * 60 * 60;
     $expected_duration = $last_grazing_event->get('duration')->value;
     $expected_recovery = $last_grazing_event->get('recovery')->value;
@@ -216,8 +217,10 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $planned_start_field = $this->getSession()->getPage()->find('xpath', '//input[@type="hidden"][@name="' . $prefix . '[planned_start]"]');
     $this->assertNotNull($planned_start_field);
     $this->assertEquals((string) $expected_start, $planned_start_field->getAttribute('value'));
-    $this->assertSession()->fieldValueEquals($prefix . '[planned_duration]', (string) $expected_duration);
-    $this->assertSession()->fieldValueEquals($prefix . '[planned_recovery]', (string) $expected_recovery);
+    // The duration and recovery fields are in days, so convert the expected
+    // values (in hours) to days.
+    $this->assertSession()->fieldValueEquals($prefix . '[planned_duration]', (string) ($expected_duration / 24));
+    $this->assertSession()->fieldValueEquals($prefix . '[planned_recovery]', (string) ($expected_recovery / 24));
 
     // Confirm the pending event is still present in the re-rendered pending
     // table, and that only one new row was added.
