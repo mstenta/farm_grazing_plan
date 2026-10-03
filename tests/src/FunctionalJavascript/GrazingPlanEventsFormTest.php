@@ -80,7 +80,6 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
           continue;
         }
         $prefix = 'grazing_events[' . $asset_id . '][' . $status . '][' . $grazing_event_id . ']';
-        $this->assertSession()->fieldExists($prefix . '[location]');
         // The pending start is not editable, so it is rendered as a hidden
         // field. Mink does not match hidden fields by name, so look it up by
         // XPath and confirm that its value matches the saved start date.
@@ -98,21 +97,20 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     // Record the original values so that we can compare them later.
     $original = [];
     foreach ($grazing_events_by_asset as $asset_events) {
-      $grazing_events = array_values($asset_events);
-      foreach ($grazing_events as $index => $grazing_event) {
+      foreach ($asset_events as $grazing_event) {
         $original[$grazing_event->id()] = [
           'start' => $grazing_event->get('start')->value,
           'duration' => $grazing_event->get('duration')->value,
           'recovery' => $grazing_event->get('recovery')->value,
           'timestamp' => $grazing_event->getLog()->get('timestamp')->value,
-          'location' => $grazing_events[count($grazing_events) - 1 - $index]->getLog()->get('location')->target_id,
+          'location' => $grazing_event->getLog()->get('location')->target_id,
         ];
       }
     }
 
-    // Reverse the order of locations and double the planned duration and
-    // recovery times. The pending starts are not editable, so they are left
-    // as is and recomputed on submit.
+    // Double the planned duration and recovery times. The pending starts are
+    // not editable, so they are left as is and recomputed on submit. The
+    // locations are also not editable, and are not updated on submit.
     foreach ($grazing_events_by_asset as $asset_id => $grazing_events) {
 
       // Click the vertical tab.
@@ -120,17 +118,12 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
       $this->getSession()->getPage()->clickLink($asset->label() . ' Grazing Events');
 
       // Iterate through the grazing event rows.
-      $events = array_values($grazing_events);
-      foreach ($events as $index => $grazing_event) {
+      foreach ($grazing_events as $grazing_event) {
         $status = $grazing_event->getLog()->get('status')->value;
         if ($status != 'pending') {
           continue;
         }
         $prefix = 'grazing_events[' . $asset_id . '][' . $status . '][' . $grazing_event->id() . ']';
-
-        // Reverse the order of locations.
-        $location = $events[count($events) - 1 - $index]->getLog()->get('location')->referencedEntities()[0];
-        $this->getSession()->getPage()->fillField($prefix . '[location]', $location->label() . ' (' . $location->id() . ')');
 
         // Double the planned duration and recovery times. The form fields
         // use days, so convert the entity values (in hours) to days.
@@ -170,8 +163,8 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
         $this->assertEquals($original[$grazing_event->id()]['duration'] * 2, $updated_grazing_event->get('duration')->value);
         $this->assertEquals($original[$grazing_event->id()]['recovery'] * 2, $updated_grazing_event->get('recovery')->value);
 
-        // The log should have the original timestamp and the reversed
-        // location.
+        // The log should have the original timestamp and the original location,
+        // which is not updated since the location is not editable.
         $log = $log_storage->load($grazing_event->get('log')->target_id);
         $this->assertEquals($original[$grazing_event->id()]['timestamp'], $log->get('timestamp')->value);
         $this->assertEquals($original[$grazing_event->id()]['location'], $log->get('location')->target_id);
