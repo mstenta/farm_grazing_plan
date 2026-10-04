@@ -27,7 +27,7 @@ class GrazingPlanEventsForm extends FormBase {
    * {@inheritdoc}
    */
   public function getFormId() {
-    return 'farm_grazing_plan_form';
+    return 'farm_grazing_plan_events_form';
   }
 
   /**
@@ -91,12 +91,8 @@ class GrazingPlanEventsForm extends FormBase {
       // The pending table is draggable, so the user can reorder the pending
       // grazing events. The tabledrag group class is unique per asset.
       $group = 'grazing-event-order-' . $asset_id;
-      $done_table = $this->buildGrazingEventTable('done', $done_events);
-      $pending_table = $this->buildGrazingEventTable('pending', $pending_events, $group);
-
-      // Wrap the pending table in a div, so it can be replaced via Ajax.
-      $pending_table['#prefix'] = '<div id="pending-grazing-events-wrapper-' . $asset_id . '">';
-      $pending_table['#suffix'] = '</div>';
+      $done_table = $this->buildGrazingEventTable($asset_id, 'done', $done_events);
+      $pending_table = $this->buildGrazingEventTable($asset_id, 'pending', $pending_events, $group);
 
       // Add new grazing event rows, if any were added via Ajax. New rows are
       // appended to the end of the pending table, after the existing rows.
@@ -156,12 +152,17 @@ class GrazingPlanEventsForm extends FormBase {
       '#url' => Url::fromRoute('farm_grazing_plan.add_event', ['plan' => $plan->id()]),
     ];
 
+    // Attach the grazing plan events form CSS library.
+    $form['#attached']['library'][] = 'farm_grazing_plan/events_form';
+
     return $form;
   }
 
   /**
    * Build a table of grazing events.
    *
+   * @param int $asset_id
+   *   The asset ID.
    * @param string $status
    *   The status of the grazing events (done/pending).
    * @param \Drupal\farm_grazing_plan\Bundle\GrazingEvent[] $grazing_events
@@ -172,7 +173,7 @@ class GrazingPlanEventsForm extends FormBase {
    * @return array
    *   Returns a render array of the table, with one row per grazing event.
    */
-  protected function buildGrazingEventTable(string $status, array $grazing_events, ?string $group = NULL): array {
+  protected function buildGrazingEventTable(int $asset_id, string $status, array $grazing_events, ?string $group = NULL): array {
 
     // Set the caption based on the status.
     $caption = '';
@@ -241,6 +242,10 @@ class GrazingPlanEventsForm extends FormBase {
       $table[$grazing_event_id] = $this->buildGrazingEventRowFields($status, $defaults, $group);
       $weight++;
     }
+
+    // Wrap the table in a div with an ID and class.
+    $table['#prefix'] = '<div id="' . $status . '-grazing-events-wrapper-' . $asset_id . '" class="grazing-events-wrapper">';
+    $table['#suffix'] = '</div>';
 
     return $table;
   }
