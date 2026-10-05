@@ -205,12 +205,15 @@ class GrazingPlanEventsForm extends FormBase {
     }
 
     // Initialize the table with a caption and column headers. The start
-    // columns differ by status: completed events show only the actual start,
-    // while pending events show only the pending start.
+    // columns differ by status: completed events show both planned and actual
+    // start and duration and planned recovery, while pending events only show
+    // planned start, duration, and recovery.
     if ($status == 'done') {
       $headers = [
         $this->t('Location'),
         $this->t('Actual start'),
+        $this->t('Actual duration'),
+        $this->t('Planned start'),
         $this->t('Planned duration'),
         $this->t('Planned recovery'),
       ];
@@ -242,6 +245,22 @@ class GrazingPlanEventsForm extends FormBase {
       ];
     }
 
+    // For the completed events table, compute the actual duration of each
+    // event as the time between its actual start (log timestamp) and the next
+    // completed event's actual start. The events are sorted chronologically.
+    // The last completed event has no actual duration.
+    $actual_durations = [];
+    if ($status == 'done') {
+      $done_events = array_values($grazing_events);
+      foreach ($done_events as $index => $done_event) {
+        if (isset($done_events[$index + 1])) {
+          $current_start = $done_event->getLog()->get('timestamp')->value;
+          $next_start = $done_events[$index + 1]->getLog()->get('timestamp')->value;
+          $actual_durations[$done_event->id()] = ($next_start - $current_start) / 86400;
+        }
+      }
+    }
+
     // Iterate through the grazing events for this asset.
     $weight = 0;
     foreach ($grazing_events as $grazing_event_id => $grazing_event) {
@@ -255,6 +274,7 @@ class GrazingPlanEventsForm extends FormBase {
         'location' => $log->get('location')->referencedEntities()[0],
         'planned_start' => $grazing_event->get('start')->value,
         'actual_start' => $log->get('timestamp')->value,
+        'actual_duration' => $actual_durations[$grazing_event_id] ?? NULL,
         'planned_duration' => $grazing_event->get('duration')->value / 24,
         'planned_recovery' => !empty($grazing_event->get('recovery')->value) ? $grazing_event->get('recovery')->value / 24 : NULL,
         'weight' => $weight,
@@ -277,8 +297,8 @@ class GrazingPlanEventsForm extends FormBase {
    *   The status of the grazing events (done/pending).
    * @param array $defaults
    *   The default row values, with keys: location, planned_start,
-   *   actual_start, planned_duration, planned_recovery, weight. The
-   *   duration and recovery values are in days.
+   *   actual_start, actual_duration, planned_duration, planned_recovery,
+   *   weight. The duration and recovery values are in days.
    * @param string|null $group
    *   The tabledrag group class, for the draggable pending table.
    * @param bool $location_editable
@@ -312,6 +332,20 @@ class GrazingPlanEventsForm extends FormBase {
       $fields['actual_start'] = [
         '#type' => 'markup',
         '#markup' => date('Y-m-d', (int) $defaults['actual_start']),
+      ];
+
+      // Actual duration, in days. It is the time until the next completed
+      // event, so it is unknown for the last completed event.
+      $actual_duration = $defaults['actual_duration'] ?? NULL;
+      $fields['actual_duration'] = [
+        '#type' => 'markup',
+        '#markup' => $actual_duration === NULL ? $this->t('TBD') : $this->t('@duration days', ['@duration' => round((float) $actual_duration, 2)]),
+      ];
+
+      // Planned start.
+      $fields['planned_start'] = [
+        '#type' => 'markup',
+        '#markup' => !empty($defaults['planned_start']) ? date('Y-m-d', (int) $defaults['planned_start']) : '',
       ];
 
       // Planned duration, in days.
