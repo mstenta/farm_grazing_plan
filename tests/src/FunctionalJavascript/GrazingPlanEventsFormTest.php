@@ -102,9 +102,10 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
       }
     }
 
-    // Double the planned duration and recovery times. The pending starts are
-    // not editable, so they are left as is and recomputed on submit. The
-    // locations are also not editable, and are not updated on submit.
+    // Double the planned duration and recovery times. The next planned movement
+    // dates are left at their default values, so the pending starts are
+    // recomputed on submit. The locations are also not editable, and are not
+    // updated on submit.
     foreach ($grazing_events_by_asset as $asset_id => $grazing_events) {
 
       // Click the vertical tab.
@@ -146,10 +147,10 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
           continue;
         }
 
-        // The pending start dates are not editable, so they are recomputed on
-        // submit. Each asset's first pending event is anchored to the end of
-        // its last completed event, which for this test data matches the
-        // original start date. The duration and recovery are doubled.
+        // The pending start dates are recomputed on submit, anchored to the
+        // next planned movement date, which defaults to the first pending
+        // event's start date. For this test data, that matches the original
+        // start date. The duration and recovery are doubled.
         $updated_grazing_event = $plan_record_storage->load($grazing_event->id());
         $this->assertEquals($original[$grazing_event->id()]['start'], $updated_grazing_event->get('start')->value);
         $this->assertEquals($original[$grazing_event->id()]['duration'] * 2, $updated_grazing_event->get('duration')->value);
@@ -270,7 +271,8 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $done_events = array_filter($grazing_events, fn ($event) => $event->getLog()->get('status')->value === 'done');
     $last_done = end($done_events);
 
-    // The recomputed start dates will be anchored to the end of the last done
+    // The next planned movement date defaults to the first pending event's
+    // start date, which for this test data equals the end of the last done
     // grazing event.
     $anchor_start = $last_done->getLog()->get('timestamp')->value + $last_done->get('duration')->value * 60 * 60;
 
@@ -310,6 +312,48 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $this->assertEquals($anchor_start, $log->get('timestamp')->value);
     $updated_first_pending = $plan_record_storage->load($first_pending->id());
     $this->assertEquals($anchor_start + $last_pending->get('duration')->value * 60 * 60, $updated_first_pending->get('start')->value);
+
+    // Reload the page to test the "Next planned movement" date field.
+    $this->drupalGet('/plan/' . $this->plan->id());
+
+    // Get the pending grazing events for the first asset, in the new order.
+    $grazing_events = \Drupal::service('farm_grazing_plan')->getGrazingEventsByAsset($this->plan)[$first_asset_id];
+    $pending_events = array_values(array_filter($grazing_events, fn ($event) => $event->getLog()->get('status')->value !== 'done'));
+    $this->assertCount(2, $pending_events);
+    $first_pending = $pending_events[0];
+    $second_pending = $pending_events[1];
+
+    // Open the first asset's vertical tab and the "Next planned movement"
+    // details box, which is collapsed by default.
+    $this->clickGrazingEventsTab($first_asset_id);
+    $this->openNextPlannedMovementDetails($first_asset_id);
+
+    // Set the next planned movement date to 10 days after the first pending
+    // event's current start date.
+    $new_date = date('Y-m-d', $first_pending->get('start')->value + 10 * 24 * 60 * 60);
+    $this->fillDateField('grazing_events[' . $first_asset_id . '][pending_start][date]', $new_date);
+
+    // Save the events.
+    $this->getSession()->getPage()->pressButton('Save events');
+    $this->assertTrue($this->assertSession()->waitForText('Updated the grazing events.', 30000));
+
+    // Confirm that the pending start dates and their logs were recomputed
+    // from the new next planned movement date, which is stored as a timestamp
+    // at midnight. The first pending event starts on the new date, and the
+    // second pending event starts at the end of the first pending event.
+    $this->drupalGet('/plan/' . $this->plan->id());
+    $expected_start = strtotime($new_date);
+    $updated_first_pending = $plan_record_storage->load($first_pending->id());
+    $this->assertEquals($expected_start, $updated_first_pending->get('start')->value);
+    $log = $log_storage->load($updated_first_pending->get('log')->target_id);
+    $this->assertEquals($expected_start, $log->get('timestamp')->value);
+    $updated_second_pending = $plan_record_storage->load($second_pending->id());
+    $this->assertEquals($expected_start + $first_pending->get('duration')->value * 60 * 60, $updated_second_pending->get('start')->value);
+
+    // Confirm that the next planned movement date field defaults to the first
+    // pending event's start date.
+    $this->clickGrazingEventsTab($first_asset_id);
+    $this->assertSession()->fieldValueEquals('grazing_events[' . $first_asset_id . '][pending_start][date]', $new_date);
   }
 
   /**
@@ -322,6 +366,41 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $tab = $this->getSession()->getPage()->find('xpath', "//a[@href='#edit-grazing-events-{$asset_id}']");
     $this->assertNotNull($tab);
     $tab->click();
+  }
+
+  /**
+   * Open the "Next planned movement" details box for an asset.
+   *
+   * The details box is collapsed by default, and the date field inside must
+   * be visible to be filled by the test.
+   */
+  protected function openNextPlannedMovementDetails(int $asset_id): void {
+    $summary = $this->getSession()->getPage()->find('xpath', "//details[@id='edit-grazing-events-{$asset_id}-pending-start']/summary");
+    $this->assertNotNull($summary);
+    $summary->click();
+  }
+
+  /**
+   * Fill a date or time input field by setting its value via JavaScript.
+   *
+   * HTML5 date and time inputs cannot be filled reliably by typing, so set
+   * their value directly. Assert that the browser accepted the value.
+   *
+   * @param string $name
+   *   The name attribute of the input field.
+   * @param string $value
+   *   The value to set, in ISO format (Y-m-d or H:i:s).
+   */
+  protected function fillDateField(string $name, string $value): void {
+
+    // Note: The script must begin with "return", otherwise evaluateScript()
+    // prepends it, causing a JavaScript syntax error.
+    $actual = $this->getSession()->evaluateScript(
+      'return (function() { var el = document.querySelector(\'input[name="' . $name . '"]\'); el.value = ' . json_encode($value) . '; return el.value; })();'
+    );
+
+    // Ensure the browser accepted the value.
+    $this->assertSame($value, $actual);
   }
 
 }

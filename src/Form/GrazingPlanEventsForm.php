@@ -113,8 +113,29 @@ class GrazingPlanEventsForm extends FormBase {
       ];
       if (!empty($done_events)) {
         $form['grazing_events'][$asset_id]['done'] = $done_table;
+        $form['grazing_events'][$asset_id]['done']['#weight'] = -10;
       }
       $form['grazing_events'][$asset_id]['pending'] = $pending_table;
+
+      // Allow overriding the planned start of the next pending event, in case
+      // it needs to happen earlier or later than planned, since the planned
+      // duration of the last completed event may not reflect reality. Default
+      // the date to the first pending event's start, or the last completed
+      // event's date + its planned duration, if there are no pending events.
+      $form['grazing_events'][$asset_id]['pending_start'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Next planned movement'),
+        '#description' => $this->t('When should the next grazing event start? This will default to the start date of the first pending event, or the date + planned duration of the last completed event if there are no pending events. Adjust this if plans change.'),
+        '#open' => FALSE,
+        '#weight' => -5,
+      ];
+      $form['grazing_events'][$asset_id]['pending_start']['date'] = [
+        '#type' => 'date',
+        '#title' => $this->t('Next planned movement'),
+        '#title_display' => 'invisible',
+        '#default_value' => $this->getNextPlannedMovementDateDefault($pending_events, $done_events),
+        '#required' => TRUE,
+      ];
 
       // Add a submit button to each asset's grazing events.
       $form['grazing_events'][$asset_id]['submit'] = [
@@ -424,6 +445,40 @@ class GrazingPlanEventsForm extends FormBase {
   }
 
   /**
+   * Get the default value for the next planned movement date field.
+   *
+   * Defaults to the first pending event's planned start, if available.
+   * Otherwise, defaults to the last completed event's date + its planned
+   * duration.
+   *
+   * @param \Drupal\farm_grazing_plan\Bundle\GrazingEvent[] $pending_events
+   *   The asset's pending grazing events, sorted chronologically.
+   * @param \Drupal\farm_grazing_plan\Bundle\GrazingEvent[] $done_events
+   *   The asset's completed grazing events, sorted chronologically.
+   *
+   * @return string
+   *   Returns the default date, formatted as Y-m-d.
+   */
+  protected function getNextPlannedMovementDateDefault(array $pending_events, array $done_events): string {
+
+    // Default to the first pending event's planned start, if available.
+    $start = !empty($pending_events) ? reset($pending_events)->get('start')->value : NULL;
+
+    // Otherwise, default to the last completed event's date + its planned
+    // duration. The events are sorted chronologically, so the last completed
+    // event is the most recent.
+    if (empty($start)) {
+      $start = NULL;
+      foreach ($done_events as $grazing_event) {
+        $start = $grazing_event->getLog()->get('timestamp')->value + ($grazing_event->get('duration')->value * 60 * 60);
+      }
+    }
+
+    // Format the timestamp as a Y-m-d date string, for the date form element.
+    return empty($start) ? '' : date('Y-m-d', (int) $start);
+  }
+
+  /**
    * Get default values for a new grazing event row.
    *
    * @param int|string $asset_id
@@ -499,10 +554,13 @@ class GrazingPlanEventsForm extends FormBase {
     $grazing_event_values_by_asset = $form_state->getValue('grazing_events');
     foreach ($grazing_event_values_by_asset as $asset_id => $grazing_events) {
 
+      // Convert the submitted next planned movement date to a timestamp.
+      $anchor_start = (int) strtotime((string) ($grazing_events['pending_start']['date'] ?? ''));
+
       // Update and reorder the pending grazing events and recompute their
       // start dates. Completed grazing events are not editable, so they are
       // not updated.
-      $this->processPendingGrazingEvents($plan, (int) $asset_id, $grazing_events['pending'] ?? []);
+      $this->processPendingGrazingEvents($plan, (int) $asset_id, $grazing_events['pending'] ?? [], $anchor_start);
     }
 
     // Tell the user that grazing events were updated.
@@ -513,7 +571,8 @@ class GrazingPlanEventsForm extends FormBase {
    * Process the submitted pending grazing events for an asset.
    *
    * Reorders the rows based on the submitted weight values, recomputes the
-   * start dates, and updates or creates the grazing events and logs.
+   * start dates from the next planned movement date, and updates or creates
+   * the grazing events and logs.
    *
    * @param \Drupal\plan\Entity\PlanInterface $plan
    *   The grazing plan.
@@ -521,8 +580,10 @@ class GrazingPlanEventsForm extends FormBase {
    *   The asset ID.
    * @param array $rows
    *   The submitted pending grazing event values, keyed by row key.
+   * @param int $anchor_start
+   *   The next planned movement date, as a timestamp at midnight.
    */
-  protected function processPendingGrazingEvents(PlanInterface $plan, int $asset_id, array $rows) {
+  protected function processPendingGrazingEvents(PlanInterface $plan, int $asset_id, array $rows, int $anchor_start) {
 
     // Bail if there are no pending rows.
     if (empty($rows)) {
@@ -535,9 +596,9 @@ class GrazingPlanEventsForm extends FormBase {
       return ((int) ($a['weight'] ?? 0)) <=> ((int) ($b['weight'] ?? 0));
     });
 
-    // The pending start dates are not editable, so always recompute them
-    // based on the previous events' start dates and durations.
-    $this->recomputePendingGrazingEventStarts($plan, $asset_id, $rows);
+    // Recompute the start dates from the next planned movement date and the
+    // submitted planned durations.
+    $this->recomputePendingGrazingEventStarts($anchor_start, $rows);
 
     // Update the existing grazing events, and create the new ones.
     foreach ($rows as $row_key => $values) {
@@ -553,31 +614,18 @@ class GrazingPlanEventsForm extends FormBase {
   /**
    * Recompute the start dates of the pending grazing events for an asset.
    *
-   * The first event starts at the end of the last completed event for the
-   * asset, or keeps its submitted start date if there are no completed
-   * events. Each subsequent event starts at the end of the previous event,
-   * based on its planned duration.
+   * The first event starts at the next planned movement date. Each subsequent
+   * event starts at the end of the previous event, based on its planned
+   * duration.
    *
-   * @param \Drupal\plan\Entity\PlanInterface $plan
-   *   The grazing plan.
-   * @param int $asset_id
-   *   The asset ID.
+   * @param int $anchor_start
+   *   The next planned movement date, as a timestamp. The first pending
+   *   event starts at this date.
    * @param array $rows
    *   The pending grazing event values, keyed by row key, in the new order.
    *   The values are modified in place.
    */
-  protected function recomputePendingGrazingEventStarts(PlanInterface $plan, int $asset_id, array &$rows) {
-
-    // Get the end of the last completed grazing event for the asset, to use
-    // as the anchor for the recomputed start dates. The events are sorted
-    // chronologically, so the last completed event is the most recent.
-    $grazing_events = $this->grazingPlan->getGrazingEventsByAsset($plan)[$asset_id] ?? [];
-    $anchor_start = NULL;
-    foreach ($grazing_events as $grazing_event) {
-      if ($grazing_event->getLog()->get('status')->value === 'done') {
-        $anchor_start = $grazing_event->getLog()->get('timestamp')->value + ($grazing_event->get('duration')->value * 60 * 60);
-      }
-    }
+  protected function recomputePendingGrazingEventStarts(int $anchor_start, array &$rows) {
 
     // Cascade the start dates through the pending events.
     $previous_start = NULL;
@@ -587,12 +635,9 @@ class GrazingPlanEventsForm extends FormBase {
       // Convert duration from days to seconds.
       $duration = (int) round((float) ($values['planned_duration'] ?? 0) * 24 * 60 * 60);
 
-      // The first event starts at the end of the last completed event, or
-      // keeps its submitted start date if there are no completed events.
+      // The first event starts at the next planned movement date.
       if ($previous_start === NULL) {
-        if ($anchor_start !== NULL) {
-          $values['planned_start'] = $anchor_start;
-        }
+        $values['planned_start'] = $anchor_start;
       }
 
       // Subsequent events start at the end of the previous event.

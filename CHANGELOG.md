@@ -16,9 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Completed events show the actual start date.
   - Pending events show the pending start date.
   - Log timestamps are updated automatically to match pending event start dates.
-  - Pending events can be rearranged via drag-and-drop. Dates are recomputed
-    automatically.
-  - Only duration and recovery are editable in pending events.
+  - Pending events can be rearranged via drag-and-drop.
+  - The next planned movement date can be set per asset. Pending event start
+    dates are computed from it, and are recomputed automatically when the
+    order or planned durations change.
 
 ## [1.0.0-alpha4] 2026-10-02
 
