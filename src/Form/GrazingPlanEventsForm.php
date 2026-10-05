@@ -104,12 +104,11 @@ class GrazingPlanEventsForm extends FormBase {
         $pending_table[$row_key] = $this->buildGrazingEventRowFields('pending', $defaults, $group, TRUE);
       }
 
-      // Add the tables to a collapsed details box for this asset.
+      // Add the tables to a vertical tab for this asset.
       // Only show done events if there are any.
       $form['grazing_events'][$asset_id] = [
         '#type' => 'details',
         '#title' => $asset->label(),
-        '#open' => FALSE,
         '#group' => 'tabs',
       ];
       if (!empty($done_events)) {
