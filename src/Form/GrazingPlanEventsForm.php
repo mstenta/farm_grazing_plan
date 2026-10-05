@@ -541,6 +541,49 @@ class GrazingPlanEventsForm extends FormBase {
   /**
    * {@inheritdoc}
    */
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+
+    // Load the plan. Bail if null.
+    /** @var \Drupal\plan\Entity\PlanInterface|null $plan */
+    $plan = $this->entityTypeManager->getStorage('plan')->load($form_state->get('plan_id'));
+    if (is_null($plan)) {
+      return;
+    }
+
+    // Validate the next planned movement date for each asset.
+    $grazing_events_by_asset = $this->grazingPlan->getGrazingEventsByAsset($plan);
+    $grazing_event_values = $form_state->getValue('grazing_events');
+    foreach ($grazing_events_by_asset as $asset_id => $grazing_events) {
+
+      // Skip assets that are not in the form (eg: if the user does not have
+      // access to them).
+      if (empty($grazing_event_values[$asset_id])) {
+        continue;
+      }
+
+      // Get the submitted pending start date for this asset's next movement
+      // and convert it to a timestamp.
+      $timestamp = strtotime((string) ($grazing_event_values[$asset_id]['pending_start']['date']));
+
+      // Validate that the date is not before the start of the asset's last
+      // completed event. The events are sorted chronologically, so the last
+      // completed event is the most recent.
+      $last_done_start = NULL;
+      foreach ($grazing_events as $grazing_event) {
+        if ($grazing_event->getLog()->get('status')->value === 'done') {
+          $last_done_start = $grazing_event->getLog()->get('timestamp')->value;
+        }
+      }
+      if ($last_done_start !== NULL && $timestamp < $last_done_start) {
+        $asset = $this->entityTypeManager->getStorage('asset')->load($asset_id);
+        $form_state->setError($form['grazing_events'][$asset_id]['pending_start']['date'], $this->t('The next planned movement date for @asset cannot be before the start date of its last completed event.', ['@asset' => $asset->label()]));
+      }
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function submitForm(array &$form, FormStateInterface $form_state) {
 
     // Load the plan. Bail if null.

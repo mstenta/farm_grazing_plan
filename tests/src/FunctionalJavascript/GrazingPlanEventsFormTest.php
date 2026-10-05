@@ -354,6 +354,18 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     // pending event's start date.
     $this->clickGrazingEventsTab($first_asset_id);
     $this->assertSession()->fieldValueEquals('grazing_events[' . $first_asset_id . '][pending_start][date]', $new_date);
+
+    // Test that a next planned movement date before the last completed event's
+    // start date is rejected, and that the pending events are not changed.
+    $this->clickGrazingEventsTab($first_asset_id);
+    $this->openNextPlannedMovementDetails($first_asset_id);
+    $invalid_date = date('Y-m-d', $last_done->getLog()->get('timestamp')->value - 24 * 60 * 60);
+    $this->fillDateField('grazing_events[' . $first_asset_id . '][pending_start][date]', $invalid_date);
+    $this->getSession()->getPage()->pressButton('Save events');
+    $this->assertSession()->waitForText('cannot be before the start date of its last completed event', 30000);
+    $this->drupalGet('/plan/' . $this->plan->id());
+    $updated_first_pending = $plan_record_storage->load($first_pending->id());
+    $this->assertEquals($expected_start, $updated_first_pending->get('start')->value);
   }
 
   /**
