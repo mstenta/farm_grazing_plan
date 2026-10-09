@@ -104,7 +104,7 @@ Here is a summary of the major features this release provides:
   view by asset or by location.
 
 [Unreleased]: https://github.com/mstenta/farm_grazing_plan/compare/1.0.0-alpha4...HEAD
-[1.0.0-alpha4]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha3
+[1.0.0-alpha4]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha4
 [1.0.0-alpha3]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha3
 [1.0.0-alpha2]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha2
 [1.0.0-alpha1]: https://github.com/mstenta/farm_grazing_plan/releases/tag/1.0.0-alpha1
