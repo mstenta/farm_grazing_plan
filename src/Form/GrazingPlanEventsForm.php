@@ -8,6 +8,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
+use Drupal\farm_form\Traits\FarmFormProtectionTrait;
 use Drupal\farm_grazing_plan\GrazingPlanInterface;
 use Drupal\log\Entity\Log;
 use Drupal\plan\Entity\PlanInterface;
@@ -17,6 +18,8 @@ use Drupal\plan\Entity\PlanRecord;
  * Grazing plan form.
  */
 class GrazingPlanEventsForm extends FormBase {
+
+  use FarmFormProtectionTrait;
 
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
@@ -174,6 +177,9 @@ class GrazingPlanEventsForm extends FormBase {
 
     // Attach the grazing plan events form CSS library.
     $form['#attached']['library'][] = 'farm_grazing_plan/events_form';
+
+    // Enable form protection.
+    $this->enableFormProtection($form);
 
     return $form;
   }

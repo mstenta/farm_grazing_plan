@@ -10,6 +10,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
+use Drupal\farm_form\Traits\FarmFormProtectionTrait;
 use Drupal\farm_grazing_plan\GrazingPlanInterface;
 use Drupal\log\Entity\Log;
 use Drupal\log\Entity\LogInterface;
@@ -21,6 +22,8 @@ use Drupal\plan\Entity\PlanRecordInterface;
  * Grazing plan add event form.
  */
 class GrazingPlanAddEventForm extends FormBase {
+
+  use FarmFormProtectionTrait;
 
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
@@ -203,6 +206,9 @@ class GrazingPlanAddEventForm extends FormBase {
       '#type' => 'submit',
       '#value' => $this->t('Save'),
     ];
+
+    // Enable form protection.
+    $this->enableFormProtection($form);
 
     return $form;
   }
