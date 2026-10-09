@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pending events show the pending start date.
   - Log timestamps are updated automatically to match pending event start dates.
   - Pending events can be rearranged via drag-and-drop.
+  - Unsaved pending events can be removed from the form before saving.
   - The next planned movement date can be set per asset. Pending event start
     dates are computed from it, and are recomputed automatically when the
     order or planned durations change.

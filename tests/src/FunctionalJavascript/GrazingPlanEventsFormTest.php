@@ -366,6 +366,54 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $this->drupalGet('/plan/' . $this->plan->id());
     $updated_first_pending = $plan_record_storage->load($first_pending->id());
     $this->assertEquals($expected_start, $updated_first_pending->get('start')->value);
+
+    // Add a new row via Ajax and then test that the "Remove" button works.
+    $this->drupalGet('/plan/' . $this->plan->id());
+    $this->clickGrazingEventsTab($first_asset_id);
+    $button = $this->getSession()->getPage()->find('xpath', "//input[@name='add_grazing_event_{$first_asset_id}']");
+    $this->assertNotNull($button);
+    $button->press();
+    $prefix = 'grazing_events[' . $first_asset_id . '][pending][new_1]';
+    $this->assertNotNull($this->assertSession()->waitForField($prefix . '[location]', 30000));
+    $remove_button = $this->getSession()->getPage()->find('xpath', "//input[@name='remove_grazing_event_{$first_asset_id}_1']");
+    $this->assertNotNull($remove_button);
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'input[name^="remove_grazing_event_"]'));
+    $expected_log_count = count($log_storage->loadMultiple());
+    $expected_plan_record_count = count($plan_record_storage->loadMultiple());
+    $remove_button->press();
+    $this->assertTrue($this->waitForFieldRemoved($prefix . '[location]', 30000));
+    $this->assertCount($expected_log_count, $log_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
+
+    // Add a new row again via Ajax. The removed row key is not reused, so
+    // the new row should be "new_2".
+    $button = $this->getSession()->getPage()->find('xpath', "//input[@name='add_grazing_event_{$first_asset_id}']");
+    $this->assertNotNull($button);
+    $button->press();
+    $prefix2 = 'grazing_events[' . $first_asset_id . '][pending][new_2]';
+    $this->assertNotNull($this->assertSession()->waitForField($prefix2 . '[location]', 30000));
+    $this->assertSession()->fieldNotExists($prefix . '[location]');
+
+    // Submit the form and confirm that exactly one new movement log and
+    // grazing event were created, from the remaining new row, and that the
+    // removed row was not created.
+    $location = $this->landAssets[0];
+    $this->getSession()->getPage()->fillField($prefix2 . '[location]', $location->label() . ' (' . $location->id() . ')');
+    $this->getSession()->getPage()->fillField($prefix2 . '[planned_duration]', '5');
+    $this->getSession()->getPage()->pressButton('Save events');
+    $this->assertTrue($this->assertSession()->waitForText('Updated the grazing events.', 30000));
+    $this->assertCount($expected_log_count + 1, $log_storage->loadMultiple());
+    $this->assertCount($expected_plan_record_count + 1, $plan_record_storage->loadMultiple());
+    $plan_record_ids = $plan_record_storage->getQuery()
+      ->sort('id', 'DESC')
+      ->range(0, 1)
+      ->accessCheck(FALSE)
+      ->execute();
+    $plan_record = $plan_record_storage->load(reset($plan_record_ids));
+    $this->assertEquals(120, $plan_record->get('duration')->value);
+    $log = $log_storage->load($plan_record->get('log')->target_id);
+    $this->assertEquals('pending', $log->get('status')->value);
+    $this->assertEquals($location->id(), $log->get('location')->target_id);
   }
 
   /**
@@ -413,6 +461,32 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
 
     // Ensure the browser accepted the value.
     $this->assertSame($value, $actual);
+  }
+
+  /**
+   * Wait for a field to be removed from the page.
+   *
+   * Polls the page until the field no longer exists, or the timeout is
+   * reached. Used to wait for an Ajax request that removes an element.
+   *
+   * @param string $name
+   *   The name attribute of the input field.
+   * @param int $timeout
+   *   The timeout, in milliseconds.
+   *
+   * @return bool
+   *   Returns TRUE if the field was removed before the timeout, or FALSE
+   *   otherwise.
+   */
+  protected function waitForFieldRemoved(string $name, int $timeout): bool {
+    $start = microtime(TRUE);
+    while ((microtime(TRUE) - $start) * 1000 < $timeout) {
+      if (!$this->getSession()->getPage()->findField($name)) {
+        return TRUE;
+      }
+      usleep(500000);
+    }
+    return FALSE;
   }
 
 }

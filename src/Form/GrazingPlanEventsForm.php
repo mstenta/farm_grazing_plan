@@ -63,6 +63,13 @@ class GrazingPlanEventsForm extends FormBase {
       $new_rows_by_asset = [];
     }
 
+    // Get the new grazing event rows that were removed from each asset's
+    // table.
+    $removed_rows_by_asset = $form_state->get('grazing_event_removed_rows');
+    if ($removed_rows_by_asset === NULL) {
+      $removed_rows_by_asset = [];
+    }
+
     // Build the grazing events as a form tree so form state values are built
     // as a nested array.
     $form['grazing_events']['#tree'] = TRUE;
@@ -102,9 +109,32 @@ class GrazingPlanEventsForm extends FormBase {
       $num_new_rows = $new_rows_by_asset[$asset_id] ?? 0;
       for ($row_num = 1; $row_num <= $num_new_rows; $row_num++) {
         $row_key = 'new_' . $row_num;
+
+        // Skip the row if it was removed via Ajax.
+        if (in_array($row_key, $removed_rows_by_asset[$asset_id] ?? [])) {
+          continue;
+        }
+
         $defaults = $this->getNewGrazingEventRowDefaults($asset_id, $row_num, $grazing_events, $form_state);
         $defaults['weight'] = count($pending_events) + ($row_num - 1);
-        $pending_table[$row_key] = $this->buildGrazingEventRowFields('pending', $defaults, $group, TRUE);
+        $row = $this->buildGrazingEventRowFields('pending', $defaults, $group, TRUE);
+
+        // Add a button to remove the new row via Ajax. New rows are not
+        // saved, so removing the row does not delete any entities.
+        $row['operations']['remove'] = [
+          '#type' => 'submit',
+          '#value' => $this->t('Remove'),
+          '#name' => 'remove_grazing_event_' . $asset_id . '_' . $row_num,
+          '#submit' => [[$this, 'removeGrazingEventRow']],
+          // Limit validation errors, so that removing a row does not require
+          // the form to be valid.
+          '#limit_validation_errors' => [],
+          '#ajax' => [
+            'callback' => [$this, 'pendingGrazingEventsAjaxCallback'],
+            'wrapper' => 'pending-grazing-events-wrapper-' . $asset_id,
+          ],
+        ];
+        $pending_table[$row_key] = $row;
       }
 
       // Add the tables to a vertical tab for this asset.
@@ -154,7 +184,7 @@ class GrazingPlanEventsForm extends FormBase {
         '#name' => 'add_grazing_event_' . $asset_id,
         '#submit' => [[$this, 'addGrazingEventRow']],
         '#ajax' => [
-          'callback' => [$this, 'addGrazingEventRowAjaxCallback'],
+          'callback' => [$this, 'pendingGrazingEventsAjaxCallback'],
           'wrapper' => 'pending-grazing-events-wrapper-' . $asset_id,
         ],
       ];
@@ -480,12 +510,37 @@ class GrazingPlanEventsForm extends FormBase {
   }
 
   /**
-   * Ajax callback for the "Add event" button.
+   * Submit handler for the "Remove" button on a new grazing event row.
    *
-   * Returns the table for the triggering asset so that the new row is
-   * rendered.
+   * Records the row key in the form state, so that the row is skipped when
+   * the form is rebuilt. New rows are not saved, so no entities are deleted.
    */
-  public function addGrazingEventRowAjaxCallback(array $form, FormStateInterface $form_state) {
+  public function removeGrazingEventRow(array &$form, FormStateInterface $form_state) {
+
+    // Get the asset ID and row key from the triggering element.
+    $parents = $form_state->getTriggeringElement()['#parents'];
+    $asset_id = $parents[1];
+    $row_key = $parents[3];
+
+    // Record the removed row, so that it is skipped when the form is rebuilt.
+    $removed_rows_by_asset = $form_state->get('grazing_event_removed_rows');
+    if ($removed_rows_by_asset === NULL) {
+      $removed_rows_by_asset = [];
+    }
+    $removed_rows_by_asset[$asset_id][] = $row_key;
+    $form_state->set('grazing_event_removed_rows', $removed_rows_by_asset);
+
+    // Rebuild the form to remove the row.
+    $form_state->setRebuild();
+  }
+
+  /**
+   * Ajax callback for the pending grazing events table.
+   *
+   * Returns the pending table for the triggering asset, so that it is
+   * re-rendered after a row is added or removed.
+   */
+  public function pendingGrazingEventsAjaxCallback(array $form, FormStateInterface $form_state) {
     $asset_id = $form_state->getTriggeringElement()['#parents'][1];
     return $form['grazing_events'][$asset_id]['pending'];
   }
