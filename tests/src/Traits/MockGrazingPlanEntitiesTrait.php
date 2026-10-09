@@ -130,19 +130,33 @@ trait MockGrazingPlanEntitiesTrait {
     $this->plan->save();
 
     // Create activity logs and grazing events that move each animal through
-    // all paddocks.
+    // all paddocks. Mark the last grazing event log per animal as pending.
     foreach ($this->animalAssets as $animal_asset) {
-      foreach ($this->landAssets as $land_asset) {
+      foreach ($this->landAssets as $index => $land_asset) {
         $timestamp = $this->nextGrazingEventTimestamp();
-        $this->createMockGrazingEvent($timestamp, $animal_asset, $land_asset, TRUE, $this->plan);
+        $status = $index === count($this->landAssets) - 1 ? 'pending' : 'done';
+        $this->createMockGrazingEvent($timestamp, $animal_asset, $land_asset, TRUE, $this->plan, $status);
       }
     }
   }
 
   /**
    * Create mock grazing event log (and optional plan_record) entity.
+   *
+   * @param int $timestamp
+   *   The log timestamp.
+   * @param \Drupal\asset\Entity\AssetInterface $asset
+   *   The animal asset.
+   * @param \Drupal\asset\Entity\AssetInterface $location
+   *   The location asset.
+   * @param bool $plan_record
+   *   Whether to also create a plan_record entity.
+   * @param \Drupal\plan\Entity\PlanInterface|null $plan
+   *   The plan entity.
+   * @param string $status
+   *   The log status, either 'done' or 'pending'.
    */
-  public function createMockGrazingEvent(int $timestamp, AssetInterface $asset, AssetInterface $location, bool $plan_record = TRUE, ?PlanInterface $plan = NULL) {
+  public function createMockGrazingEvent(int $timestamp, AssetInterface $asset, AssetInterface $location, bool $plan_record = TRUE, ?PlanInterface $plan = NULL, string $status = 'done') {
 
     // Create the log entity.
     $log = Log::create([
@@ -156,7 +170,7 @@ trait MockGrazingPlanEntitiesTrait {
         ['target_id' => $location->id()],
       ],
       'is_movement' => TRUE,
-      'status' => 'done',
+      'status' => $status,
     ]);
     $log->save();
     $this->movementLogs[] = $log;

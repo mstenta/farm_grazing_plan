@@ -1,3 +1,7 @@
+events_form:
+  css:
+    theme:
+      css/events_form.css: { }
 timeline:
   css:
     theme:

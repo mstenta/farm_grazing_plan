@@ -9,6 +9,7 @@ use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormBuilderInterface;
 use Drupal\Core\Hook\Attribute\Hook;
+use Drupal\farm_grazing_plan\Form\GrazingPlanEventsForm;
 use Drupal\farm_grazing_plan\Form\GrazingPlanTimelineForm;
 use Drupal\farm_grazing_plan\GrazingPlanInterface;
 
@@ -36,13 +37,15 @@ class ThemeHooks {
       return;
     }
 
-    // If there are no grazing events, bail.
-    if (empty($this->grazingPlan->getGrazingEvents($plan))) {
-      return;
+    // If there are grazing events, render the grazing plan timeline.
+    if (!empty($this->grazingPlan->getGrazingEvents($plan))) {
+      $build['grazing_plan_timeline'] = $this->formBuilder->getForm(GrazingPlanTimelineForm::class, $plan);
     }
 
-    // Render the grazing plan timeline.
-    $build['grazing_plan_timeline'] = $this->formBuilder->getForm(GrazingPlanTimelineForm::class, $plan);
+    // If the user has plan update access, render the grazing plan form.
+    if ($plan->access('update')) {
+      $build['grazing_plan_form'] = $this->formBuilder->getForm(GrazingPlanEventsForm::class, $plan);
+    }
   }
 
   /**
@@ -56,6 +59,7 @@ class ThemeHooks {
       return [
         'top' => [
           'grazing_plan_timeline',
+          'grazing_plan_form',
         ],
       ];
     }

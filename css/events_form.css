@@ -1,0 +1,4 @@
+/* Add space below grazing event form table wrappers. */
+#farm-grazing-plan-events-form .grazing-events-wrapper {
+  margin-bottom: 1em;
+}
