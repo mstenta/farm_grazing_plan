@@ -185,20 +185,20 @@ class GrazingPlanAddEventForm extends FormBase {
 
     $form['details']['duration'] = [
       '#type' => 'number',
-      '#title' => $this->t('Duration (hours)'),
+      '#title' => $this->t('Duration (days)'),
       '#step' => 1,
       '#min' => 1,
-      '#max' => 8760,
+      '#max' => 365,
       '#default_value' => $default_values['duration'],
       '#required' => TRUE,
     ];
 
     $form['details']['recovery'] = [
       '#type' => 'number',
-      '#title' => $this->t('Recovery (hours)'),
+      '#title' => $this->t('Recovery (days)'),
       '#step' => 1,
-      '#min' => 1,
-      '#max' => 8760,
+      '#min' => 0,
+      '#max' => 365,
       '#default_value' => $default_values['recovery'],
     ];
 
@@ -354,13 +354,19 @@ class GrazingPlanAddEventForm extends FormBase {
    *   Returns an unsaved plan_record entity.
    */
   protected function buildGrazingEvent(LogInterface $log, FormStateInterface $form_state): PlanRecordInterface {
+
+    // The form collects the durations in days, but they are stored in hours.
+    $duration = $form_state->getValue('duration');
+    $recovery = $form_state->getValue('recovery');
+
+    // Build the grazing event, converting the durations from days to hours.
     return PlanRecord::create([
       'type' => 'grazing_event',
       'plan' => $form_state->get('plan_id'),
       'log' => $log->id(),
       'start' => $form_state->getValue('start')->getTimestamp(),
-      'duration' => $form_state->getValue('duration'),
-      'recovery' => $form_state->getValue('recovery'),
+      'duration' => (int) round($duration * 24),
+      'recovery' => empty($recovery) ? NULL : (int) round($recovery * 24),
     ]);
   }
 

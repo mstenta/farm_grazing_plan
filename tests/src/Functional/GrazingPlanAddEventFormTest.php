@@ -83,8 +83,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'location' => $location->label() . ' (' . $location->id() . ')',
       'start[date]' => date('Y-m-d', $early_timestamp),
       'start[time]' => date('H:i:s', $early_timestamp),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ], 'Save');
     $this->assertSession()->pageTextContains('The planned start date/time is before the last existing grazing event for this asset in the plan. Grazing events can only be added to the end of the plan.');
     $this->assertCount($expected_log_count, $log_storage->loadMultiple());
@@ -100,8 +100,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'log' => $early_log->label() . ' (' . $early_log->id() . ')',
       'start[date]' => date('Y-m-d', $this->nextGrazingEventTimestamp()),
       'start[time]' => date('H:i:s', $this->nextGrazingEventTimestamp()),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ], 'Save');
     $this->assertSession()->pageTextContains('The movement log timestamp is before the last existing grazing event for this asset in the plan. Grazing events can only be added to the end of the plan.');
     $expected_log_count++;
@@ -122,8 +122,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'location' => $location->label() . ' (' . $location->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ], 'Save');
 
     // Confirm that the status messages are shown.
@@ -169,8 +169,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'location' => $location->label() . ' (' . $location->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ], 'Save');
 
     // Confirm that the status messages are shown.
@@ -221,8 +221,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'log' => $log->label() . ' (' . $log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ];
     $this->submitForm($edit, 'Save');
 
@@ -286,8 +286,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'log' => $non_movement_log->label() . ' (' . $non_movement_log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ], 'Save');
     $this->assertSession()->pageTextContains('Only movement logs can be added to a grazing plan.');
     $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
@@ -310,8 +310,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'log' => $no_asset_log->label() . ' (' . $no_asset_log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ], 'Save');
     $this->assertSession()->pageTextContains('This log does not reference an asset. A grazing event must move one asset.');
     $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
@@ -334,8 +334,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'log' => $no_location_log->label() . ' (' . $no_location_log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ], 'Save');
     $this->assertSession()->pageTextContains('This log does not reference a location. A grazing event must move an asset to a location.');
     $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
@@ -362,8 +362,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'log' => $multi_asset_log->label() . ' (' . $multi_asset_log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ], 'Save');
     $this->assertSession()->pageTextContains('This log references multiple assets. A grazing event can only move one asset.');
     $this->assertSession()->pageTextContains('Tip: The Group asset type can be used');
@@ -391,8 +391,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
       'log' => $multi_location_log->label() . ' (' . $multi_location_log->id() . ')',
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ], 'Save');
     $this->assertSession()->pageTextContains('This log references multiple locations. A grazing event can only move an asset to a single location.');
     $this->assertCount($expected_plan_record_count, $plan_record_storage->loadMultiple());
@@ -418,8 +418,8 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->submitForm([
       'start[date]' => date('Y-m-d', $timestamp),
       'start[time]' => date('H:i:s', $timestamp),
-      'duration' => 7 * 24,
-      'recovery' => 15 * 24,
+      'duration' => 7,
+      'recovery' => 15,
     ], 'Save');
 
     // Confirm that the status message is shown.
