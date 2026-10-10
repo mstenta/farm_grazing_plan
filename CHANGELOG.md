@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add revision log messages to the grazing plan and movement logs when
+  grazing events are created or updated via the "Add grazing event" form and
+  the grazing plan events form.
+
+### Changed
+
+- Only save grazing events and movement logs that have changed, when updating
+  events via the grazing plan events form. If nothing was changed, a warning
+  is shown instead of the success message.
+
 ## [1.0.0-alpha6] 2026-10-12
 
 ### Added
