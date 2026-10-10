@@ -12,6 +12,7 @@ use Drupal\Core\Url;
 use Drupal\farm_form\Traits\FarmFormProtectionTrait;
 use Drupal\farm_grazing_plan\GrazingPlanInterface;
 use Drupal\log\Entity\Log;
+use Drupal\log\Entity\LogInterface;
 use Drupal\plan\Entity\PlanInterface;
 use Drupal\plan\Entity\PlanRecord;
 
@@ -758,7 +759,10 @@ class GrazingPlanEventsForm extends FormBase {
       return;
     }
 
-    // Iterate through the submitted grazing events for each asset.
+    // Iterate through the submitted grazing events for each asset. Collect
+    // the movement logs of the created and updated grazing events.
+    $created_logs = [];
+    $updated_logs = [];
     $grazing_event_values_by_asset = $form_state->getValue('grazing_events');
     foreach ($grazing_event_values_by_asset as $asset_id => $grazing_events) {
 
@@ -776,7 +780,15 @@ class GrazingPlanEventsForm extends FormBase {
       // Update and reorder the pending grazing events and recompute their
       // start dates. Completed grazing events are not editable, so they are
       // not updated.
-      $this->processPendingGrazingEvents($plan, (int) $asset_id, $rows, $anchor_start);
+      $result = $this->processPendingGrazingEvents($plan, (int) $asset_id, $rows, $anchor_start);
+      $created_logs = array_merge($created_logs, $result['created']);
+      $updated_logs = array_merge($updated_logs, $result['updated']);
+    }
+
+    // If no grazing events were created or updated, bail.
+    if (empty($created_logs) && empty($updated_logs)) {
+      $this->messenger()->addWarning($this->t('No grazing events saved.'));
+      return;
     }
 
     // Tell the user that grazing events were updated.
@@ -798,12 +810,22 @@ class GrazingPlanEventsForm extends FormBase {
    *   The submitted pending grazing event values, keyed by row key.
    * @param int $anchor_start
    *   The next planned movement date, as a timestamp at midnight.
+   *
+   * @return array
+   *   Returns an array with 'created' and 'updated' keys, each an array of
+   *   the movement logs of the created or updated grazing events.
    */
-  protected function processPendingGrazingEvents(PlanInterface $plan, int $asset_id, array $rows, int $anchor_start) {
+  protected function processPendingGrazingEvents(PlanInterface $plan, int $asset_id, array $rows, int $anchor_start): array {
+
+    // Start with empty results.
+    $result = [
+      'created' => [],
+      'updated' => [],
+    ];
 
     // Bail if there are no pending rows.
     if (empty($rows)) {
-      return;
+      return $result;
     }
 
     // Sort the submitted rows by their submitted weight values, to get the
@@ -816,15 +838,22 @@ class GrazingPlanEventsForm extends FormBase {
     // submitted planned durations.
     $this->recomputePendingGrazingEventStarts($anchor_start, $rows);
 
-    // Update the existing grazing events, and create the new ones.
+    // Update the existing grazing events, and create the new ones. Collect
+    // the movement logs of the created and updated grazing events.
     foreach ($rows as $row_key => $values) {
       if (is_numeric($row_key)) {
-        $this->updateGrazingEvent((int) $row_key, $values);
+        $log = $this->updateGrazingEvent($plan, (int) $row_key, $values);
+        if (!is_null($log)) {
+          $result['updated'][] = $log;
+        }
       }
       else {
-        $this->createGrazingEvent((int) $plan->id(), $asset_id, $values);
+        $result['created'][] = $this->createGrazingEvent($plan, $asset_id, $values);
       }
     }
+
+    // Return the results.
+    return $result;
   }
 
   /**
@@ -870,41 +899,78 @@ class GrazingPlanEventsForm extends FormBase {
   /**
    * Update an existing grazing event.
    *
+   * Only the fields and the log that have changed are saved.
+   *
+   * @param \Drupal\plan\Entity\PlanInterface $plan
+   *   The grazing plan.
    * @param int $grazing_event_id
    *   The grazing event ID.
    * @param array $values
    *   An array of values from $form_state.
+   *
+   * @return \Drupal\log\Entity\LogInterface|null
+   *   Returns the grazing event's movement log if the grazing event or its
+   *   log was updated, or NULL if nothing changed.
    */
-  protected function updateGrazingEvent(int $grazing_event_id, array $values) {
+  protected function updateGrazingEvent(PlanInterface $plan, int $grazing_event_id, array $values): ?LogInterface {
     /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEventInterface $grazing_event */
     $grazing_event = $this->entityTypeManager->getStorage('plan_record')->load($grazing_event_id);
 
-    // Update the grazing event values, converting the durations from days to
-    // hours.
-    $grazing_event->set('start', $values['planned_start']);
-    $grazing_event->set('duration', (int) round($values['planned_duration'] * 24));
-    $grazing_event->set('recovery', empty($values['planned_recovery']) ? NULL : (int) round($values['planned_recovery'] * 24));
-    $grazing_event->save();
+    // Compute the target values, converting the durations from days to hours.
+    $start = (int) $values['planned_start'];
+    $field_values = [
+      'start' => $start,
+      'duration' => (int) round($values['planned_duration'] * 24),
+      'recovery' => empty($values['planned_recovery']) ? NULL : (int) round($values['planned_recovery'] * 24),
+    ];
 
-    // Update the grazing event's log values. The actual start (log timestamp)
-    // is kept in sync with the pending start. The location is not editable,
-    // so it is not updated.
+    // Set the grazing event fields that have changed.
+    $changed = FALSE;
+    foreach ($field_values as $field => $value) {
+      if ($grazing_event->get($field)->value != $value) {
+        $grazing_event->set($field, $value);
+        $changed = TRUE;
+      }
+    }
+
+    // Save the grazing event, if it was changed.
+    if ($changed) {
+      $grazing_event->save();
+    }
+
+    // Update the grazing event's log, if the timestamp has changed. The
+    // actual start (log timestamp) is kept in sync with the pending start.
+    // The location is not editable, so it is not updated.
     $log = $grazing_event->getLog();
-    $log->set('timestamp', $values['planned_start']);
-    $log->save();
+    $log_changed = FALSE;
+    if ($log->get('timestamp')->value != $start) {
+      $log->set('timestamp', $start);
+      $log_changed = TRUE;
+    }
+
+    // Save the log, if it was changed.
+    if ($log_changed) {
+      $log->save();
+    }
+
+    // Return the log if the grazing event or its log was updated.
+    return ($changed || $log_changed) ? $log : NULL;
   }
 
   /**
    * Create a new grazing event.
    *
-   * @param int $plan_id
-   *   The plan ID.
+   * @param \Drupal\plan\Entity\PlanInterface $plan
+   *   The grazing plan.
    * @param int $asset_id
    *   The asset ID.
    * @param array $values
    *   An array of values from $form_state.
+   *
+   * @return \Drupal\log\Entity\LogInterface
+   *   Returns the created movement log.
    */
-  protected function createGrazingEvent(int $plan_id, int $asset_id, array $values) {
+  protected function createGrazingEvent(PlanInterface $plan, int $asset_id, array $values): LogInterface {
 
     // Load the asset and location.
     $asset = $this->entityTypeManager->getStorage('asset')->load($asset_id);
@@ -925,13 +991,16 @@ class GrazingPlanEventsForm extends FormBase {
     // Create the grazing event, converting the durations from days to hours.
     $grazing_event = PlanRecord::create([
       'type' => 'grazing_event',
-      'plan' => $plan_id,
+      'plan' => $plan->id(),
       'log' => $log->id(),
       'start' => $values['planned_start'],
       'duration' => (int) round($values['planned_duration'] * 24),
       'recovery' => empty($values['planned_recovery']) ? NULL : (int) round($values['planned_recovery'] * 24),
     ]);
     $grazing_event->save();
+
+    // Return the created movement log.
+    return $log;
   }
 
 }
