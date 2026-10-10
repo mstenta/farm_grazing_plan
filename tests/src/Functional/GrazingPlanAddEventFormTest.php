@@ -36,8 +36,9 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     // Create mock plan entities.
     $this->createMockPlanEntities();
 
-    // Get log and plan_record entity storage.
+    // Get log, plan, and plan_record entity storage.
     $log_storage = \Drupal::entityTypeManager()->getStorage('log');
+    $plan_storage = \Drupal::entityTypeManager()->getStorage('plan');
     $plan_record_storage = \Drupal::entityTypeManager()->getStorage('plan_record');
 
     // Count log and plan_record entities.
@@ -155,6 +156,13 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertEquals(7 * 24, $plan_record->get('duration')->value);
     $this->assertEquals(15 * 24, $plan_record->get('recovery')->value);
 
+    // Confirm that the plan has a revision log message that references the
+    // new movement log, and that the new movement log has a revision log
+    // message that references the plan.
+    $plan = $plan_storage->load($this->plan->id());
+    $this->assertEquals('Created grazing event: <a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>.', $plan->getRevisionLogMessage());
+    $this->assertEquals('Created via <a href="' . $this->plan->toUrl()->toString() . '">' . $this->plan->label() . '</a>.', $log->getRevisionLogMessage());
+
     // Reload the form.
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
 
@@ -202,6 +210,13 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertEquals(7 * 24, $plan_record->get('duration')->value);
     $this->assertEquals(15 * 24, $plan_record->get('recovery')->value);
 
+    // Confirm that the plan has a revision log message that references the
+    // new movement log, and that the new movement log has a revision log
+    // message that references the plan.
+    $plan = $plan_storage->load($this->plan->id());
+    $this->assertEquals('Created grazing event: <a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>.', $plan->getRevisionLogMessage());
+    $this->assertEquals('Created via <a href="' . $this->plan->toUrl()->toString() . '">' . $this->plan->label() . '</a>.', $log->getRevisionLogMessage());
+
     // Track the new grazing event for calculating future timestamps.
     $this->grazingEvents[] = $plan_record;
 
@@ -240,6 +255,14 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertEquals($timestamp, $plan_record->get('start')->value);
     $this->assertEquals(7 * 24, $plan_record->get('duration')->value);
     $this->assertEquals(15 * 24, $plan_record->get('recovery')->value);
+
+    // Confirm that the plan has a revision log message that references the
+    // existing movement log, and that the existing movement log was not
+    // modified, so it has no revision log message.
+    $plan = $plan_storage->load($this->plan->id());
+    $this->assertEquals('Created grazing event: <a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>.', $plan->getRevisionLogMessage());
+    $log = $log_storage->load($log->id());
+    $this->assertNull($log->getRevisionLogMessage());
 
     // Track the new grazing event for calculating future timestamps.
     $this->grazingEvents[] = $plan_record;
@@ -433,6 +456,14 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $plan_record = end($plan_records);
     $this->assertEquals($this->plan->id(), $plan_record->get('plan')->target_id);
     $this->assertEquals($log->id(), $plan_record->get('log')->target_id);
+
+    // Confirm that the plan has a revision log message that references the
+    // existing movement log, and that the existing movement log was not
+    // modified, so it has no revision log message.
+    $plan = $plan_storage->load($this->plan->id());
+    $this->assertEquals('Created grazing event: <a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>.', $plan->getRevisionLogMessage());
+    $log = $log_storage->load($log->id());
+    $this->assertNull($log->getRevisionLogMessage());
   }
 
 }

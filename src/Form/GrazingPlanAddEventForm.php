@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\farm_grazing_plan\Form;
 
+use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
@@ -375,6 +376,13 @@ class GrazingPlanAddEventForm extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
 
+    // Load the plan. Bail if null.
+    /** @var \Drupal\plan\Entity\PlanInterface|null $plan */
+    $plan = $this->entityTypeManager->getStorage('plan')->load($form_state->get('plan_id'));
+    if (is_null($plan)) {
+      return;
+    }
+
     // If we are not linking an existing log, create one.
     if (!$form_state->getValue('existing_log')) {
       $now = new DrupalDateTime('now', $this->currentUser()->getTimeZone());
@@ -391,11 +399,19 @@ class GrazingPlanAddEventForm extends FormBase {
         'status' => $start->getTimestamp() <= $now->getTimestamp() ? 'done' : 'pending',
         'is_movement' => TRUE,
       ]);
+
+      // Set a revision log message that references the plan, and save the log.
+      $plan_args = [
+        ':plan_uri' => $plan->toUrl()->toString(),
+        '@plan_label' => $plan->label(),
+      ];
+      $log->setRevisionLogMessage((string) new FormattableMarkup('Created via <a href=":plan_uri">@plan_label</a>.', $plan_args));
       $log->save();
       $this->messenger()->addMessage($this->t('Created log: @log', ['@log' => $log->label()]));
     }
 
-    // Otherwise, load the existing log.
+    // Otherwise, load the existing log. The log is not modified, so it does
+    // not get a revision log message.
     else {
       /** @var \Drupal\log\Entity\LogInterface|null $log */
       $log = $this->entityTypeManager->getStorage('log')->load($form_state->getValue('log'));
@@ -406,6 +422,14 @@ class GrazingPlanAddEventForm extends FormBase {
     $grazing_event = $this->buildGrazingEvent($log, $form_state);
     $grazing_event->save();
     $this->messenger()->addMessage($this->t('Added @grazing_event', ['@grazing_event' => $grazing_event->label()]));
+
+    // Save a revision log message to the plan, referencing the movement log.
+    $plan_revision = 'Created grazing event: ' . (string) new FormattableMarkup('<a href=":uri">@label</a>', [
+      ':uri' => $log->toUrl()->toString(),
+      '@label' => $log->label(),
+    ]) . '.';
+    $plan->setRevisionLogMessage($plan_revision);
+    $plan->save();
 
     // Redirect to the plan.
     $form_state->setRedirect('entity.plan.canonical', ['plan' => $form_state->get('plan_id')]);
