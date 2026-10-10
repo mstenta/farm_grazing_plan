@@ -161,8 +161,13 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
 
     // Confirm the grazing events and logs are updated with the expected
     // values.
+    $plan_storage = \Drupal::entityTypeManager()->getStorage('plan');
     $plan_record_storage = \Drupal::entityTypeManager()->getStorage('plan_record');
     $log_storage = \Drupal::entityTypeManager()->getStorage('log');
+
+    // Get the plan's current revision ID, so that we can confirm that a new
+    // plan revision is created on each save.
+    $plan_revision_id = $plan_storage->load($this->plan->id())->getRevisionId();
     foreach ($grazing_events_by_asset as $grazing_events) {
       foreach ($grazing_events as $grazing_event) {
         $status = $grazing_event->getLog()->get('status')->value;
@@ -186,6 +191,26 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
         $this->assertEquals($original[$grazing_event->id()]['location'], $log->get('location')->target_id);
       }
     }
+
+    // Confirm that the plan has a revision log message that references the
+    // pending grazing events, and that a new plan revision was created. The
+    // movement logs were not updated, because their timestamps did not
+    // change, so they have no revision log messages.
+    $plan = $plan_storage->load($this->plan->id());
+    $this->assertGreaterThan($this->plan->getRevisionId(), $plan->getRevisionId());
+    $plan_revision_id = $plan->getRevisionId();
+    $expected_log_links = [];
+    foreach ($grazing_events_by_asset as $grazing_events) {
+      foreach ($grazing_events as $grazing_event) {
+        if ($grazing_event->getLog()->get('status')->value != 'pending') {
+          continue;
+        }
+        $log = $log_storage->load($grazing_event->getLog()->id());
+        $this->assertNull($log->getRevisionLogMessage());
+        $expected_log_links[] = '<a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>';
+      }
+    }
+    $this->assertEquals('Updated grazing events: ' . implode(', ', $expected_log_links) . '.', $plan->getRevisionLogMessage());
 
     // Reload the page to test the "Add event" button.
     $this->drupalGet('/plan/' . $this->plan->id());
@@ -279,6 +304,16 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $this->assertEquals($expected_duration, $plan_record->get('duration')->value);
     $this->assertEquals($expected_recovery, $plan_record->get('recovery')->value);
 
+    // Confirm that the new movement log has a revision log message that
+    // references the plan, and that the plan has a revision log message that
+    // references the new movement log.
+    $plan_link = '<a href="' . $this->plan->toUrl()->toString() . '">' . $this->plan->label() . '</a>';
+    $this->assertEquals('Created via ' . $plan_link . '.', $log->getRevisionLogMessage());
+    $plan = $plan_storage->load($this->plan->id());
+    $this->assertGreaterThan($plan_revision_id, $plan->getRevisionId());
+    $plan_revision_id = $plan->getRevisionId();
+    $this->assertEquals('Created grazing event: <a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>.', $plan->getRevisionLogMessage());
+
     // Reload the page to test reordering the pending grazing events.
     $this->drupalGet('/plan/' . $this->plan->id());
 
@@ -344,6 +379,23 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $updated_first_pending = $plan_record_storage->load($first_pending->id());
     $this->assertEquals($anchor_start + $last_pending->get('duration')->value * 60 * 60, $updated_first_pending->get('start')->value);
 
+    // Confirm that the reordered movement logs have revision log messages
+    // that reference the plan, and that the plan has a revision log message
+    // that references both movement logs, in the new order.
+    $updated_logs = [
+      $log_storage->load($updated_last_pending->get('log')->target_id),
+      $log_storage->load($updated_first_pending->get('log')->target_id),
+    ];
+    $plan_link = '<a href="' . $this->plan->toUrl()->toString() . '">' . $this->plan->label() . '</a>';
+    foreach ($updated_logs as $updated_log) {
+      $this->assertEquals('Updated via ' . $plan_link . '.', $updated_log->getRevisionLogMessage());
+    }
+    $plan = $plan_storage->load($this->plan->id());
+    $this->assertGreaterThan($plan_revision_id, $plan->getRevisionId());
+    $plan_revision_id = $plan->getRevisionId();
+    $log_links = array_map(fn ($updated_log) => '<a href="' . $updated_log->toUrl()->toString() . '">' . $updated_log->label() . '</a>', $updated_logs);
+    $this->assertEquals('Updated grazing events: ' . implode(', ', $log_links) . '.', $plan->getRevisionLogMessage());
+
     // Reload the page to test the "Next planned movement" date field.
     $this->drupalGet('/plan/' . $this->plan->id());
 
@@ -380,6 +432,22 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $this->assertEquals($expected_start, $log->get('timestamp')->value);
     $updated_second_pending = $plan_record_storage->load($second_pending->id());
     $this->assertEquals($expected_start + $first_pending->get('duration')->value * 60 * 60, $updated_second_pending->get('start')->value);
+
+    // Confirm that the movement logs have revision log messages that
+    // reference the plan, and that the plan has a revision log message that
+    // references both movement logs.
+    $updated_logs = [
+      $log_storage->load($updated_first_pending->get('log')->target_id),
+      $log_storage->load($updated_second_pending->get('log')->target_id),
+    ];
+    foreach ($updated_logs as $updated_log) {
+      $this->assertEquals('Updated via ' . $plan_link . '.', $updated_log->getRevisionLogMessage());
+    }
+    $plan = $plan_storage->load($this->plan->id());
+    $this->assertGreaterThan($plan_revision_id, $plan->getRevisionId());
+    $plan_revision_id = $plan->getRevisionId();
+    $log_links = array_map(fn ($updated_log) => '<a href="' . $updated_log->toUrl()->toString() . '">' . $updated_log->label() . '</a>', $updated_logs);
+    $this->assertEquals('Updated grazing events: ' . implode(', ', $log_links) . '.', $plan->getRevisionLogMessage());
 
     // Confirm that the next planned movement date field defaults to the first
     // pending event's start date.
@@ -445,6 +513,15 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $log = $log_storage->load($plan_record->get('log')->target_id);
     $this->assertEquals('pending', $log->get('status')->value);
     $this->assertEquals($location->id(), $log->get('location')->target_id);
+
+    // Confirm that the new movement log has a revision log message that
+    // references the plan, and that the plan has a revision log message that
+    // references the new movement log.
+    $this->assertEquals('Created via ' . $plan_link . '.', $log->getRevisionLogMessage());
+    $plan = $plan_storage->load($this->plan->id());
+    $this->assertGreaterThan($plan_revision_id, $plan->getRevisionId());
+    $plan_revision_id = $plan->getRevisionId();
+    $this->assertEquals('Created grazing event: <a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>.', $plan->getRevisionLogMessage());
 
     // Test that the "Complete" button redirects to the "Complete grazing event"
     // quick form without saving the form.

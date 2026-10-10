@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\farm_grazing_plan\Form;
 
+use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Core\Access\AccessManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -791,6 +792,24 @@ class GrazingPlanEventsForm extends FormBase {
       return;
     }
 
+    // Build and save a revision log message to the plan, referencing the
+    // created and updated movement logs.
+    $plan_revisions = [];
+    if (!empty($created_logs)) {
+      $log_links = array_map(function (LogInterface $log) {
+        return (string) new FormattableMarkup('<a href=":uri">@label</a>', [':uri' => $log->toUrl()->toString(), '@label' => $log->label()]);
+      }, $created_logs);
+      $plan_revisions[] = 'Created grazing event' . (count($log_links) > 1 ? 's' : '') . ': ' . implode(', ', $log_links) . '.';
+    }
+    if (!empty($updated_logs)) {
+      $log_links = array_map(function (LogInterface $log) {
+        return (string) new FormattableMarkup('<a href=":uri">@label</a>', [':uri' => $log->toUrl()->toString(), '@label' => $log->label()]);
+      }, $updated_logs);
+      $plan_revisions[] = 'Updated grazing event' . (count($log_links) > 1 ? 's' : '') . ': ' . implode(', ', $log_links) . '.';
+    }
+    $plan->setRevisionLogMessage(implode(' ', $plan_revisions));
+    $plan->save();
+
     // Tell the user that grazing events were updated.
     $this->messenger()->addMessage($this->t('Updated the grazing events.'));
   }
@@ -948,8 +967,14 @@ class GrazingPlanEventsForm extends FormBase {
       $log_changed = TRUE;
     }
 
-    // Save the log, if it was changed.
+    // Save the log with a revision log message that references the plan, if it
+    // was changed.
     if ($log_changed) {
+      $plan_args = [
+        ':plan_uri' => $plan->toUrl()->toString(),
+        '@plan_label' => $plan->label(),
+      ];
+      $log->setRevisionLogMessage((string) new FormattableMarkup('Updated via <a href=":plan_uri">@plan_label</a>.', $plan_args));
       $log->save();
     }
 
@@ -986,6 +1011,13 @@ class GrazingPlanEventsForm extends FormBase {
       'status' => 'pending',
       'is_movement' => TRUE,
     ]);
+
+    // Set a revision log message that references the plan, and save the log.
+    $plan_args = [
+      ':plan_uri' => $plan->toUrl()->toString(),
+      '@plan_label' => $plan->label(),
+    ];
+    $log->setRevisionLogMessage((string) new FormattableMarkup('Created via <a href=":plan_uri">@plan_label</a>.', $plan_args));
     $log->save();
 
     // Create the grazing event, converting the durations from days to hours.
