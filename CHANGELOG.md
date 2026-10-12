@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a revision log message to the movement log when a grazing event is
+  completed via the quick form.
 - Add revision log messages to the grazing plan and movement logs when
   grazing events are created or updated via the "Add grazing event" form and
   the grazing plan events form.

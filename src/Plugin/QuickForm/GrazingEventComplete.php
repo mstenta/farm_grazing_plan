@@ -164,6 +164,14 @@ class GrazingEventComplete extends QuickFormBase {
     // Mark the log as done.
     $log->set('status', 'done');
 
+    // Set a revision message.
+    $revision_message = $this->t('Grazing event completed from plan: <a href=":plan_url">@plan_label</a>', [
+      ':plan_url' => $plan->toUrl()->toString(),
+      '@plan_label' => $plan->label(),
+    ])->render();
+    $log->setNewRevision(TRUE);
+    $log->setRevisionLogMessage($revision_message);
+
     // Save the log.
     $log->save();
 

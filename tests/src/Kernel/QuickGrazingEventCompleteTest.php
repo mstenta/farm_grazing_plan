@@ -118,25 +118,41 @@ class QuickGrazingEventCompleteTest extends QuickFormTestBase {
     \Drupal::request()->query->remove('grazing_event');
 
     // Complete the first pending grazing event and confirm its log is marked
-    // as done.
+    // as done, with a new revision and a revision log message that
+    // references the plan.
     $first_event_id = array_key_first(array_filter($options, function ($value, $key) {
       return $key !== '';
     }, ARRAY_FILTER_USE_BOTH));
     /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEvent $grazing_event */
     $grazing_event = \Drupal::entityTypeManager()->getStorage('plan_record')->load($first_event_id);
     $log_id = $grazing_event->getLog()->id();
+    $plan = $grazing_event->getPlan();
+    $log = \Drupal::entityTypeManager()->getStorage('log')->load($log_id);
+    $log_revision_id = $log->getRevisionId();
     $this->assertEquals('pending', $grazing_event->getLog()->get('status')->value);
     $this->submitQuickForm(['grazing_event' => $first_event_id]);
     $log = \Drupal::entityTypeManager()->getStorage('log')->load($log_id);
     $this->assertEquals('done', $log->get('status')->value);
+    $this->assertNotEquals($log_revision_id, $log->getRevisionId());
+    $this->assertEquals('Grazing event completed from plan: <a href="' . $plan->toUrl()->toString() . '">' . $plan->label() . '</a>', $log->getRevisionLogMessage());
 
     // Confirm the quick form now offers the remaining pending grazing event,
-    // and complete it.
+    // and complete it, confirming the same revision log message behavior.
     $form = \Drupal::service('form_builder')->getForm(QuickForm::class, $this->quickFormId);
     $option_ids = array_keys($form['grazing_event']['#options']);
     $this->assertCount(2, $option_ids);
     $remaining_event_id = array_pop($option_ids);
+    /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEvent $remaining_event */
+    $remaining_event = \Drupal::entityTypeManager()->getStorage('plan_record')->load($remaining_event_id);
+    $remaining_log_id = $remaining_event->getLog()->id();
+    $remaining_plan = $remaining_event->getPlan();
+    $remaining_log = \Drupal::entityTypeManager()->getStorage('log')->load($remaining_log_id);
+    $remaining_log_revision_id = $remaining_log->getRevisionId();
     $this->submitQuickForm(['grazing_event' => $remaining_event_id]);
+    $remaining_log = \Drupal::entityTypeManager()->getStorage('log')->load($remaining_log_id);
+    $this->assertEquals('done', $remaining_log->get('status')->value);
+    $this->assertNotEquals($remaining_log_revision_id, $remaining_log->getRevisionId());
+    $this->assertEquals('Grazing event completed from plan: <a href="' . $remaining_plan->toUrl()->toString() . '">' . $remaining_plan->label() . '</a>', $remaining_log->getRevisionLogMessage());
 
     // Confirm the quick form is back to only showing the empty '- Select -'
     // option.
