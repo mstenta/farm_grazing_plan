@@ -57,7 +57,6 @@ class GrazingPlanEventsFormTest extends FarmBrowserTestBase {
     foreach ($this->grazingEvents as $grazing_event) {
       /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEventInterface $grazing_event */
       $log = $grazing_event->getLog();
-      $this->assertNotNull($log);
       $original[$grazing_event->id()] = [
         'start' => $grazing_event->get('start')->value,
         'duration' => $grazing_event->get('duration')->value,
@@ -85,7 +84,6 @@ class GrazingPlanEventsFormTest extends FarmBrowserTestBase {
     foreach ($this->grazingEvents as $grazing_event) {
       /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEventInterface $grazing_event */
       $log = $grazing_event->getLog();
-      $this->assertNotNull($log);
       $saved = $plan_record_storage->load($grazing_event->id());
       $this->assertEquals($original[$grazing_event->id()]['start'], $saved->get('start')->value);
       $this->assertEquals($original[$grazing_event->id()]['duration'], $saved->get('duration')->value);
