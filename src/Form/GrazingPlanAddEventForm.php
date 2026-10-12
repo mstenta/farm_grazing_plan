@@ -428,6 +428,7 @@ class GrazingPlanAddEventForm extends FormBase {
       ':uri' => $log->toUrl()->toString(),
       '@label' => $log->label(),
     ]) . '.';
+    $plan->setNewRevision(TRUE);
     $plan->setRevisionLogMessage($plan_revision);
     $plan->save();
 

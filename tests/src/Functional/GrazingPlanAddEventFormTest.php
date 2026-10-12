@@ -163,6 +163,9 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertEquals('Created grazing event: <a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>.', $plan->getRevisionLogMessage());
     $this->assertEquals('Created via <a href="' . $this->plan->toUrl()->toString() . '">' . $this->plan->label() . '</a>.', $log->getRevisionLogMessage());
 
+    // Confirm that a new plan revision was created.
+    $this->assertGreaterThan($this->plan->getRevisionId(), $plan->getRevisionId());
+
     // Reload the form.
     $this->drupalGet('/plan/' . $this->plan->id() . '/grazing/event');
 
@@ -217,6 +220,9 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertEquals('Created grazing event: <a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>.', $plan->getRevisionLogMessage());
     $this->assertEquals('Created via <a href="' . $this->plan->toUrl()->toString() . '">' . $this->plan->label() . '</a>.', $log->getRevisionLogMessage());
 
+    // Confirm that a new plan revision was created.
+    $this->assertGreaterThan($this->plan->getRevisionId(), $plan->getRevisionId());
+
     // Track the new grazing event for calculating future timestamps.
     $this->grazingEvents[] = $plan_record;
 
@@ -263,6 +269,9 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertEquals('Created grazing event: <a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>.', $plan->getRevisionLogMessage());
     $log = $log_storage->load($log->id());
     $this->assertNull($log->getRevisionLogMessage());
+
+    // Confirm that a new plan revision was created.
+    $this->assertGreaterThan($this->plan->getRevisionId(), $plan->getRevisionId());
 
     // Track the new grazing event for calculating future timestamps.
     $this->grazingEvents[] = $plan_record;
@@ -464,6 +473,9 @@ class GrazingPlanAddEventFormTest extends FarmBrowserTestBase {
     $this->assertEquals('Created grazing event: <a href="' . $log->toUrl()->toString() . '">' . $log->label() . '</a>.', $plan->getRevisionLogMessage());
     $log = $log_storage->load($log->id());
     $this->assertNull($log->getRevisionLogMessage());
+
+    // Confirm that a new plan revision was created.
+    $this->assertGreaterThan($this->plan->getRevisionId(), $plan->getRevisionId());
   }
 
 }
