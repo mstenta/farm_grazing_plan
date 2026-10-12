@@ -807,6 +807,7 @@ class GrazingPlanEventsForm extends FormBase {
       }, $updated_logs);
       $plan_revisions[] = 'Updated grazing event' . (count($log_links) > 1 ? 's' : '') . ': ' . implode(', ', $log_links) . '.';
     }
+    $plan->setNewRevision(TRUE);
     $plan->setRevisionLogMessage(implode(' ', $plan_revisions));
     $plan->save();
 
@@ -974,6 +975,7 @@ class GrazingPlanEventsForm extends FormBase {
         ':plan_uri' => $plan->toUrl()->toString(),
         '@plan_label' => $plan->label(),
       ];
+      $log->setNewRevision(TRUE);
       $log->setRevisionLogMessage((string) new FormattableMarkup('Updated via <a href=":plan_uri">@plan_label</a>.', $plan_args));
       $log->save();
     }

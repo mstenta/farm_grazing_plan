@@ -363,6 +363,14 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $weight_first_pending = $this->getSession()->getPage()->findField('grazing_events[' . $first_asset_id . '][pending][' . $first_pending->id() . '][weight]')->getValue();
     $this->assertLessThan($weight_first_pending, $weight_last_pending);
 
+    // Get the movement logs' revision IDs, so that we can confirm that new
+    // revisions are created when the logs are updated.
+    $log_revision_ids = [];
+    foreach ([$first_pending, $last_pending] as $pending) {
+      $log = $log_storage->load($pending->get('log')->target_id);
+      $log_revision_ids[$log->id()] = $log->getRevisionId();
+    }
+
     // Save the events.
     $this->getSession()->getPage()->pressButton('Save events');
     $this->assertTrue($this->assertSession()->waitForText('Updated the grazing events.', 30000));
@@ -388,6 +396,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     ];
     $plan_link = '<a href="' . $this->plan->toUrl()->toString() . '">' . $this->plan->label() . '</a>';
     foreach ($updated_logs as $updated_log) {
+      $this->assertGreaterThan($log_revision_ids[$updated_log->id()], $updated_log->getRevisionId());
       $this->assertEquals('Updated via ' . $plan_link . '.', $updated_log->getRevisionLogMessage());
     }
     $plan = $plan_storage->load($this->plan->id());
@@ -416,6 +425,14 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
     $new_date = date('Y-m-d', $first_pending->get('start')->value + 10 * 24 * 60 * 60);
     $this->fillDateField('grazing_events[' . $first_asset_id . '][pending_start][date]', $new_date);
 
+    // Get the movement logs' revision IDs, so that we can confirm that new
+    // revisions are created when the logs are updated.
+    $log_revision_ids = [];
+    foreach ([$first_pending, $second_pending] as $pending) {
+      $log = $log_storage->load($pending->get('log')->target_id);
+      $log_revision_ids[$log->id()] = $log->getRevisionId();
+    }
+
     // Save the events.
     $this->getSession()->getPage()->pressButton('Save events');
     $this->assertTrue($this->assertSession()->waitForText('Updated the grazing events.', 30000));
@@ -441,6 +458,7 @@ class GrazingPlanEventsFormTest extends FarmWebDriverTestBase {
       $log_storage->load($updated_second_pending->get('log')->target_id),
     ];
     foreach ($updated_logs as $updated_log) {
+      $this->assertGreaterThan($log_revision_ids[$updated_log->id()], $updated_log->getRevisionId());
       $this->assertEquals('Updated via ' . $plan_link . '.', $updated_log->getRevisionLogMessage());
     }
     $plan = $plan_storage->load($this->plan->id());
