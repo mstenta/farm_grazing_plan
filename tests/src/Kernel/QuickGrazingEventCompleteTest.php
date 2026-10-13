@@ -167,6 +167,7 @@ class QuickGrazingEventCompleteTest extends QuickFormTestBase {
     $first_animal = reset($this->animalAssets);
     $this->createMockGrazingEvent($this->nextGrazingEventTimestamp(), $first_animal, $this->landAssets[0], TRUE, $this->plan, 'pending');
     $this->createMockGrazingEvent($this->nextGrazingEventTimestamp(), $first_animal, $this->landAssets[0], TRUE, $this->plan, 'pending');
+    /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEventInterface $second_pending_event */
     $second_pending_event = end($this->grazingEvents);
     $second_pending_log_id = $second_pending_event->getLog()->id();
 
