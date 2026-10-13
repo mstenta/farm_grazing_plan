@@ -64,9 +64,17 @@ class GrazingPlanAbandonEventForm extends ConfirmFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
 
-    // Load the grazing event, plan, and log entities.
+    // Load the grazing event entity.
     /** @var \Drupal\farm_grazing_plan\Bundle\GrazingEventInterface $grazing_event */
     $grazing_event = $this->getRouteMatch()->getParameter('grazing_event');
+
+    // Only pending grazing events can be abandoned.
+    if ($grazing_event->getStatus() !== 'pending') {
+      $this->messenger()->addError($this->t('Only pending grazing events can be abandoned.'));
+      return;
+    }
+
+    // Load the plan and log entities.
     $plan = $grazing_event->getPlan();
     $log = $grazing_event->getLog();
 
