@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\farm_grazing_plan\Kernel;
 
+use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\Tests\farm_grazing_plan\Traits\MockGrazingPlanEntitiesTrait;
 use Drupal\Tests\farm_quick\Kernel\QuickFormTestBase;
 use Drupal\farm_quick\Form\QuickForm;
@@ -160,6 +161,32 @@ class QuickGrazingEventCompleteTest extends QuickFormTestBase {
     $options = $form['grazing_event']['#options'];
     $this->assertCount(1, $options);
     $this->assertArrayHasKey('', $options);
+
+    // Add two pending events for the first animal. Only the first one should
+    // be offered as an option.
+    $first_animal = reset($this->animalAssets);
+    $this->createMockGrazingEvent($this->nextGrazingEventTimestamp(), $first_animal, $this->landAssets[0], TRUE, $this->plan, 'pending');
+    $this->createMockGrazingEvent($this->nextGrazingEventTimestamp(), $first_animal, $this->landAssets[0], TRUE, $this->plan, 'pending');
+    $second_pending_event = end($this->grazingEvents);
+    $second_pending_log_id = $second_pending_event->getLog()->id();
+
+    // Confirm that the second pending event is not an option.
+    $form = \Drupal::service('form_builder')->getForm(QuickForm::class, $this->quickFormId);
+    $options = $form['grazing_event']['#options'];
+    $this->assertCount(2, $options);
+    $this->assertArrayNotHasKey($second_pending_event->id(), $options);
+
+    // Submitting the form with the second pending event's ID is rejected
+    // with an error, because the submitted value is not one of the allowed
+    // options...
+    $this->submitQuickForm(['grazing_event' => $second_pending_event->id()]);
+    $errors = \Drupal::messenger()->messagesByType(MessengerInterface::TYPE_ERROR);
+    $error_messages = implode(' ', array_map(strval(...), $errors));
+    $this->assertStringContainsString('is not allowed', $error_messages);
+
+    // ...and the event is not completed.
+    $second_pending_log = \Drupal::entityTypeManager()->getStorage('log')->load($second_pending_log_id);
+    $this->assertEquals('pending', $second_pending_log->get('status')->value);
   }
 
 }
