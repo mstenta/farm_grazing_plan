@@ -154,7 +154,7 @@ trait MockGrazingPlanEntitiesTrait {
    * @param \Drupal\plan\Entity\PlanInterface|null $plan
    *   The plan entity.
    * @param string $status
-   *   The log status, either 'done' or 'pending'.
+   *   The log status, one of 'done', 'pending', or 'abandoned'.
    */
   public function createMockGrazingEvent(int $timestamp, AssetInterface $asset, AssetInterface $location, bool $plan_record = TRUE, ?PlanInterface $plan = NULL, string $status = 'done') {
 

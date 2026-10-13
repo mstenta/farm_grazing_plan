@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Only save grazing events and movement logs that have changed, when updating
   events via the grazing plan events form. If nothing was changed, a warning
   is shown instead of the success message.
+- Allow changing the status of a grazing event movement log when the change
+  cannot result in an out-of-order sequence of events. Any pending event can
+  be abandoned, the first pending event can be completed, the last completed
+  event can be marked pending, and an abandoned event can be marked pending
+  if no completed events follow it.
 
 ## [1.0.0-alpha6] 2026-10-12
 

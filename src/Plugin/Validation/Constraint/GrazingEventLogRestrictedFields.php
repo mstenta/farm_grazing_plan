@@ -24,4 +24,11 @@ class GrazingEventLogRestrictedFields extends SymfonyConstraint {
    */
   public string $message = 'This log is part of a Grazing Plan. Some data can only be modified in the plan.';
 
+  /**
+   * The violation message for a disallowed status change.
+   *
+   * @var string
+   */
+  public string $statusMessage = 'The status of a grazing event log can only be changed for the first pending event, the last completed event, or an abandoned event with no completed events after it.';
+
 }

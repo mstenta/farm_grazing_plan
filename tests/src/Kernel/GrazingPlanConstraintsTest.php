@@ -92,6 +92,164 @@ class GrazingPlanConstraintsTest extends GrazingPlanTestBase {
   }
 
   /**
+   * Test the allowed and blocked status changes for grazing event logs.
+   */
+  public function testGrazingEventLogStatusChanges() {
+
+    // Create mock plan entities. This creates 5 events per animal, with the
+    // first 4 done and the last 1 pending.
+    $this->createMockPlanEntities();
+
+    // Add a second pending event for each animal.
+    $first_animal = reset($this->animalAssets);
+    $second_animal = end($this->animalAssets);
+    $this->createMockGrazingEvent($this->nextGrazingEventTimestamp(), $first_animal, $this->landAssets[0], TRUE, $this->plan, 'pending');
+    $this->createMockGrazingEvent($this->nextGrazingEventTimestamp(), $second_animal, $this->landAssets[0], TRUE, $this->plan, 'pending');
+
+    // Get the grazing events for each animal, in chronological order.
+    $grazing_plan = \Drupal::service('farm_grazing_plan');
+    $events_by_asset = $grazing_plan->getGrazingEventsByAsset($this->plan);
+    $first_animal_events = array_values($events_by_asset[$first_animal->id()]);
+    $second_animal_events = array_values($events_by_asset[$second_animal->id()]);
+    $this->assertCount(6, $first_animal_events);
+    $this->assertCount(6, $second_animal_events);
+
+    // Index the events for the first animal.
+    $middle_completed = $first_animal_events[2];
+    $last_completed = $first_animal_events[3];
+    $first_pending = $first_animal_events[4];
+    $second_pending = $first_animal_events[5];
+
+    // A pending event can be completed, if it is the first pending event.
+    $this->assertStatusChangeAllowed($first_pending->getLog(), 'done');
+
+    // A pending event can be abandoned, whether or not it is the first
+    // pending event.
+    $this->assertStatusChangeAllowed($first_pending->getLog(), 'abandoned');
+    $this->assertStatusChangeAllowed($second_pending->getLog(), 'abandoned');
+
+    // A completed event can be marked pending, if it is the last completed
+    // event.
+    $this->assertStatusChangeAllowed($last_completed->getLog(), 'pending');
+
+    // A completed event cannot be marked pending, if it is not the last
+    // completed event.
+    $this->assertStatusChangeBlocked($middle_completed->getLog(), 'pending');
+
+    // A completed event cannot be abandoned.
+    $this->assertStatusChangeBlocked($last_completed->getLog(), 'abandoned');
+
+    // A pending event cannot be completed, if it is not the first pending
+    // event.
+    $this->assertStatusChangeBlocked($second_pending->getLog(), 'done');
+
+    // An abandoned event can be marked pending, if no completed events
+    // follow it.
+    $log = $second_pending->getLog();
+    $log->set('status', 'abandoned');
+    $log->save();
+    $this->assertStatusChangeAllowed($log, 'pending');
+
+    // An abandoned event cannot be completed directly.
+    $this->assertStatusChangeBlocked($log, 'done');
+
+    // An abandoned event cannot be marked pending, if completed events
+    // follow it.
+    $animal2_first_pending_log = $second_animal_events[4]->getLog();
+    $animal2_second_pending_log = $second_animal_events[5]->getLog();
+    $animal2_first_pending_log->set('status', 'abandoned');
+    $animal2_first_pending_log->save();
+    $animal2_second_pending_log->set('status', 'done');
+    $animal2_second_pending_log->save();
+    $this->assertStatusChangeBlocked($animal2_first_pending_log, 'pending');
+
+    // Marking the last completed event as pending allows the abandoned event
+    // to be marked pending.
+    $animal2_second_pending_log->set('status', 'pending');
+    $violations = $animal2_second_pending_log->validate();
+    $this->assertEmpty($violations);
+    $animal2_second_pending_log->save();
+    $this->assertStatusChangeAllowed($animal2_first_pending_log, 'pending');
+
+    // Other restricted fields are still blocked, with the generic message,
+    // even for an event whose status change would be allowed.
+    $log = $first_pending->getLog();
+    $original_timestamp = $log->get('timestamp')->value;
+    $log->set('timestamp', $original_timestamp + 86400);
+    $violations = $log->validate();
+    $this->assertEquals(1, $violations->count());
+    $violation = $violations->get(0);
+    $this->assertInstanceOf(GrazingEventLogRestrictedFields::class, $violation->getConstraint());
+    $this->assertEquals($violation->getConstraint()->message, $violation->getMessage());
+    $log->set('timestamp', $original_timestamp);
+    $violations = $log->validate();
+    $this->assertEmpty($violations);
+
+    // A disallowed status change combined with another restricted field
+    // change still results in a single violation, using the status message.
+    $log = $middle_completed->getLog();
+    $original_timestamp = $log->get('timestamp')->value;
+    $log->set('status', 'pending');
+    $log->set('timestamp', $original_timestamp + 86400);
+    $violations = $log->validate();
+    $this->assertEquals(1, $violations->count());
+    $violation = $violations->get(0);
+    $this->assertInstanceOf(GrazingEventLogRestrictedFields::class, $violation->getConstraint());
+    $this->assertEquals($violation->getConstraint()->statusMessage, $violation->getMessage());
+    $log->set('status', 'done');
+    $log->set('timestamp', $original_timestamp);
+  }
+
+  /**
+   * Assert that a status change is allowed (no violations).
+   *
+   * @param \Drupal\log\Entity\LogInterface $log
+   *   The log entity.
+   * @param string $status
+   *   The new status value.
+   */
+  protected function assertStatusChangeAllowed(LogInterface $log, string $status): void {
+
+    // Remember the original status.
+    $original_status = $log->get('status')->value;
+
+    // Change the status and confirm there are no violations.
+    $log->set('status', $status);
+    $violations = $log->validate();
+    $this->assertEmpty($violations);
+
+    // Reset the status.
+    $log->set('status', $original_status);
+  }
+
+  /**
+   * Assert that a status change is blocked, with the status message.
+   *
+   * @param \Drupal\log\Entity\LogInterface $log
+   *   The log entity.
+   * @param string $status
+   *   The new status value.
+   */
+  protected function assertStatusChangeBlocked(LogInterface $log, string $status): void {
+
+    // Remember the original status.
+    $original_status = $log->get('status')->value;
+
+    // Change the status and confirm a violation with the status message.
+    $log->set('status', $status);
+    $violations = $log->validate();
+    $this->assertEquals(1, $violations->count());
+    $violation = $violations->get(0);
+    $this->assertInstanceOf(GrazingEventLogRestrictedFields::class, $violation->getConstraint());
+    $this->assertEquals($violation->getConstraint()->statusMessage, $violation->getMessage());
+
+    // Reset the status and confirm there are no violations.
+    $log->set('status', $original_status);
+    $violations = $log->validate();
+    $this->assertEmpty($violations);
+  }
+
+  /**
    * Test the GrazingEventLog constraint on plan_record entities.
    */
   public function testGrazingEventLogValidation() {
