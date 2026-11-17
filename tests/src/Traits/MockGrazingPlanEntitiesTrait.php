@@ -1,3 +1,204 @@
+<<<<<<< HEAD
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\Tests\farm_grazing_plan\Traits;
+
+use Drupal\asset\Entity\Asset;
+use Drupal\asset\Entity\AssetInterface;
+use Drupal\log\Entity\Log;
+use Drupal\plan\Entity\Plan;
+use Drupal\plan\Entity\PlanInterface;
+use Drupal\plan\Entity\PlanRecord;
+use Drupal\taxonomy\Entity\Term;
+
+/**
+ * Provides test methods for creating mock grazing plan entities.
+ */
+trait MockGrazingPlanEntitiesTrait {
+
+  /**
+   * Year.
+   *
+   * @var string|null
+   */
+  protected ?string $year = NULL;
+
+  /**
+   * Season term.
+   *
+   * @var \Drupal\taxonomy\Entity\Term|null
+   */
+  protected ?Term $seasonTerm = NULL;
+
+  /**
+   * Animal type term.
+   *
+   * @var \Drupal\taxonomy\Entity\Term|null
+   */
+  protected ?Term $animalType = NULL;
+
+  /**
+   * Animal assets.
+   *
+   * @var \Drupal\asset\Entity\AssetInterface[]
+   */
+  protected array $animalAssets = [];
+
+  /**
+   * Land assets.
+   *
+   * @var \Drupal\asset\Entity\AssetInterface[]
+   */
+  protected array $landAssets = [];
+
+  /**
+   * Movement logs.
+   *
+   * @var \Drupal\log\Entity\LogInterface[]
+   */
+  protected array $movementLogs = [];
+
+  /**
+   * Grazing plan.
+   *
+   * @var \Drupal\plan\Entity\PlanInterface|null
+   */
+  protected ?PlanInterface $plan = NULL;
+
+  /**
+   * Grazing events.
+   *
+   * @var \Drupal\plan\Entity\PlanRecordInterface[]
+   */
+  protected array $grazingEvents = [];
+
+  /**
+   * Create mock grazing plan entities.
+   */
+  public function createMockPlanEntities(): void {
+
+    // Declare the year.
+    $this->year = date('Y');
+
+    // Create a season term.
+    $this->seasonTerm = Term::create([
+      'name' => $this->year,
+      'vid' => 'season',
+    ]);
+    $this->seasonTerm->save();
+
+    // Create animal_type term.
+    $this->animalType = Term::create([
+      'name' => 'sheep',
+      'vid' => 'animal_type',
+    ]);
+    $this->animalType->save();
+
+    // Create two animal assets.
+    for ($i = 1; $i <= 2; $i++) {
+      $asset = Asset::create([
+        'name' => 'Sheep ' . $i,
+        'type' => 'animal',
+        'animal_type' => [['target_id' => $this->animalType->id()]],
+      ]);
+      $asset->save();
+      $this->animalAssets[] = $asset;
+    }
+
+    // Create 5 land assets.
+    for ($i = 1; $i <= 5; $i++) {
+      $asset = Asset::create([
+        'name' => 'Paddock ' . $i,
+        'type' => 'land',
+        'land_type' => 'paddock',
+        'is_fixed' => TRUE,
+        'is_location' => TRUE,
+      ]);
+      $asset->save();
+      $this->landAssets[] = $asset;
+    }
+
+    // Create a grazing plan for the season.
+    $this->plan = Plan::create([
+      'name' => $this->seasonTerm->label() . ' Grazing Plan',
+      'type' => 'grazing',
+      'season' => [
+        ['target_id' => $this->seasonTerm->id()],
+      ],
+    ]);
+    $this->plan->save();
+
+    // Create activity logs and grazing events that move each animal through
+    // all paddocks.
+    foreach ($this->animalAssets as $animal_asset) {
+      foreach ($this->landAssets as $land_asset) {
+        $timestamp = $this->nextGrazingEventTimestamp();
+        $this->createMockGrazingEvent($timestamp, $animal_asset, $land_asset, TRUE, $this->plan);
+      }
+    }
+  }
+
+  /**
+   * Create mock grazing event log (and optional plan_record) entity.
+   */
+  public function createMockGrazingEvent(int $timestamp, AssetInterface $asset, AssetInterface $location, bool $plan_record = TRUE, ?PlanInterface $plan = NULL) {
+
+    // Create the log entity.
+    $log = Log::create([
+      'name' => 'Move ' . $asset->label() . ' to ' . $location->label(),
+      'type' => 'activity',
+      'timestamp' => $timestamp,
+      'asset' => [
+        ['target_id' => $asset->id()],
+      ],
+      'location' => [
+        ['target_id' => $location->id()],
+      ],
+      'is_movement' => TRUE,
+      'status' => 'done',
+    ]);
+    $log->save();
+    $this->movementLogs[] = $log;
+
+    // Create a plan_record, if desired.
+    if ($plan_record) {
+      $grazing_event = PlanRecord::create([
+        'type' => 'grazing_event',
+        'plan' => ['target_id' => $plan->id()],
+        'log' => ['target_id' => $log->id()],
+        'start' => $log->get('timestamp')->value,
+        'duration' => 7 * 24,
+        'recovery' => 15 * 24,
+      ]);
+      $grazing_event->save();
+      $this->grazingEvents[] = $grazing_event;
+    }
+  }
+
+  /**
+   * Calculate the timestamp of the next grazing event.
+   *
+   * @return int
+   *   Returns a timestamp at the end of the last grazing event.
+   */
+  public function nextGrazingEventTimestamp(): int {
+
+    // If this is the first grazing event, start on May 1.
+    if (empty($this->grazingEvents)) {
+      return strtotime('May 1, ' . $this->year);
+    }
+
+    // Otherwise, use the end of the last grazing event.
+    else {
+      $grazing_event = end($this->grazingEvents);
+      return $grazing_event->get('start')->value + ($grazing_event->get('duration')->value * 60 * 60);
+    }
+  }
+
+}
+=======
 <?php
 
 declare(strict_types=1);
@@ -211,3 +412,4 @@ trait MockGrazingPlanEntitiesTrait {
   }
 
 }
+>>>>>>> 57fd3d48daf889bb7c23dc75f758b74a8b86f73e

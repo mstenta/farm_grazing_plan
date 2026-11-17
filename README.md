@@ -1,3 +1,19 @@
+<<<<<<< HEAD
+# farmOS Grazing Plan
+
+Provides features for grazing planning in [farmOS](https://farmOS.org).
+
+## Maintainers
+
+Current maintainers:
+
+- [Michael Stenta](https://github.com/mstenta)
+
+This project has been sponsored by:
+
+- [Farmier](https://farmier.com)
+- [Wolfe's Neck Center for Agriculture & the Environment](https://wolfesneck.org)
+=======
 # farmOS Grazing Plan
 
 Provides features for grazing planning in [farmOS](https://farmOS.org).
@@ -37,3 +53,4 @@ module:
 - Lauren Madda
 - Harrison Zhao
 - Jake Scoggin (Faculty Advisor)
+>>>>>>> 57fd3d48daf889bb7c23dc75f758b74a8b86f73e

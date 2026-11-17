@@ -1,3 +1,107 @@
+<<<<<<< HEAD
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\farm_grazing_plan\Form;
+
+use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
+use Drupal\plan\Entity\PlanInterface;
+
+/**
+ * Grazing plan form.
+ */
+class GrazingPlanTimelineForm extends FormBase {
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFormId() {
+    return 'farm_grazing_plan_timeline_form';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildForm(array $form, FormStateInterface $form_state, $plan = NULL) {
+
+    // If a plan is not available, bail.
+    if (empty($plan) || !($plan instanceof PlanInterface) || $plan->bundle() != 'grazing') {
+      return [
+        '#type' => 'markup',
+        '#markup' => 'No grazing plan was provided.',
+      ];
+    }
+
+    // Toggle the timeline view by asset (default) or by location.
+    $mode_options = [
+      'asset' => $this->t('Asset'),
+      'location' => $this->t('Location'),
+    ];
+    $mode_default = 'asset';
+    $form['options'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Options'),
+      '#weight' => 100,
+    ];
+    $form['options']['mode'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Organize timeline by'),
+      '#options' => $mode_options,
+      '#default_value' => $mode_default,
+      '#ajax' => [
+        'callback' => [$this, 'timelineCallback'],
+        'wrapper' => 'timeline-wrapper',
+      ],
+    ];
+
+    // Add a wrapper for the timeline.
+    $form['timeline'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'id' => 'timeline-wrapper',
+        'class' => ['gin-layer-wrapper'],
+      ],
+    ];
+
+    // Get the selected display mode from form state.
+    $display_mode = $form_state->getValue('mode', $mode_default);
+
+    // Render the timeline.
+    $row_url = Url::fromRoute("farm_grazing_plan.timeline_by_$display_mode", ['plan' => $plan->id()]);
+    $form['timeline']['gantt'] = [
+      '#type' => 'farm_timeline',
+      '#rows' => [$row_url->setAbsolute()->toString()],
+      '#attributes' => [
+        'data-table-header' => $this->t('Grazing events (by @type)', ['@type' => $mode_options[$display_mode]]),
+      ],
+      '#attached' => [
+        'library' => ['farm_grazing_plan/timeline'],
+      ],
+    ];
+
+    return $form;
+  }
+
+  /**
+   * Ajax callback for timeline.
+   */
+  public function timelineCallback(array $form, FormStateInterface $form_state) {
+    return $form['timeline'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+
+  }
+
+}
+=======
 <?php
 
 declare(strict_types=1);
@@ -100,3 +204,4 @@ class GrazingPlanTimelineForm extends FormBase {
   }
 
 }
+>>>>>>> 57fd3d48daf889bb7c23dc75f758b74a8b86f73e

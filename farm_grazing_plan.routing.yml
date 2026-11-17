@@ -1,3 +1,46 @@
+<<<<<<< HEAD
+farm_grazing_plan.timeline_by_asset:
+  path: /plan/{plan}/grazing/timeline/asset
+  defaults:
+    _controller: Drupal\farm_grazing_plan\Controller\GrazingPlanTimeline::byAsset
+  requirements:
+    _entity_access: plan.view
+  options:
+    parameters:
+      plan:
+        type: entity:plan
+        bundle:
+          - grazing
+      delta:
+        type: integer
+farm_grazing_plan.timeline_by_location:
+  path: /plan/{plan}/grazing/timeline/location
+  defaults:
+    _controller: Drupal\farm_grazing_plan\Controller\GrazingPlanTimeline::byLocation
+  requirements:
+    _entity_access: plan.view
+  options:
+    parameters:
+      plan:
+        type: entity:plan
+        bundle:
+          - grazing
+      delta:
+        type: integer
+farm_grazing_plan.add_event:
+  path: /plan/{plan}/grazing/event
+  defaults:
+    _form: Drupal\farm_grazing_plan\Form\GrazingPlanAddEventForm
+    _title_callback: Drupal\farm_grazing_plan\Form\GrazingPlanAddEventForm::title
+  requirements:
+    _entity_access: plan.update
+  options:
+    parameters:
+      plan:
+        type: entity:plan
+        bundle:
+          - grazing
+=======
 farm_grazing_plan.timeline_by_asset:
   path: /plan/{plan}/grazing/timeline/asset
   defaults:
@@ -55,3 +98,4 @@ farm_grazing_plan.abandon_event:
         type: entity:plan_record
         bundle:
           - grazing_event
+>>>>>>> 57fd3d48daf889bb7c23dc75f758b74a8b86f73e

@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+timeline:
+  css:
+    theme:
+      css/timeline.css: { }
+=======
 events_form:
   css:
     theme:
@@ -6,3 +12,4 @@ timeline:
   css:
     theme:
       css/timeline.css: { }
+>>>>>>> 57fd3d48daf889bb7c23dc75f758b74a8b86f73e
